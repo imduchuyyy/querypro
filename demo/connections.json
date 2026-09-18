@@ -1,0 +1,8 @@
+[
+  { "name": "pg", "kind": "postgres", "uri": "postgres://postgres:postgres@localhost:5432/postgres" },
+  { "name": "mongo", "kind": "mongodb", "uri": "mongodb://localhost:27017/demo?directConnection=true" },
+  { "name": "cache", "kind": "redis", "uri": "redis://localhost:6379/0" },
+  { "name": "broker", "kind": "rabbitmq", "uri": "amqp://guest:guest@localhost:5672/" },
+  { "name": "events", "kind": "kafka", "uri": "kafka://localhost:9092" },
+  { "name": "logs", "kind": "loki", "uri": "http://localhost:3100" }
+]

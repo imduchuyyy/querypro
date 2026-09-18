@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func (m *model) mainWidth() int {
@@ -20,7 +21,7 @@ func (m *model) layout() {
 	w := m.mainWidth()
 	m.input.Placeholder = `"/" for commands`
 	if c := m.conn(); c != nil {
-		m.input.Placeholder = c.plug.Placeholder() + `   · "/" for commands`
+		m.input.Placeholder = kindOf(c.kind).Placeholder + `   · "/" for commands`
 	}
 	m.input.SetWidth(max(w-8, 1))
 	m.input.SetHeight(min(m.input.LineCount(), maxInputLines))
@@ -90,7 +91,7 @@ func (m *model) welcomeView() string {
 	if c := m.conn(); c != nil {
 		tagline = fg(t.muted).Render("tab ") + fg(t.primary).Render(fmt.Sprint(m.active+1)) +
 			fg(t.muted).Render(" · ") + badge(t, c.kind, true) + " " + fg(t.text).Bold(true).Render(c.name) +
-			fg(t.muted).Render(" · try ") + fg(t.accent).Render(c.plug.Placeholder())
+			fg(t.muted).Render(" · try ") + fg(t.accent).Render(kindOf(c.kind).Placeholder)
 		keys = [][2]string{
 			{"ctrl+o", "open a resource"},
 			{"ctrl+x", "actions on it"},
@@ -128,7 +129,11 @@ func (m *model) outputView() string {
 	}
 	var blocks []string
 	for _, e := range c.entries {
-		blocks = append(blocks, m.entryView(e), "")
+		key := fmt.Sprint(m.vp.Width(), m.theme, e.running, e.live, e.err, len(e.lines), e.elapsed)
+		if e.viewKey != key {
+			e.view, e.viewKey = m.entryView(e), key
+		}
+		blocks = append(blocks, e.view, "")
 	}
 	return strings.Join(blocks, "\n")
 }
@@ -203,12 +208,12 @@ func (m *model) tableView(cols []string, rows [][]string, w int) string {
 			}
 			if row < len(rows) && col < len(rows[row]) {
 				switch rows[row][col] {
-				case "ERROR", "refunded", "Rebalancing":
+				case "ERROR", "error":
 					return s.Foreground(t.err)
-				case "WARN", "pending":
+				case "WARN", "warn":
 					return s.Foreground(t.accent)
-				case "paid", "Stable":
-					return s.Foreground(t.success)
+				case "NULL":
+					return s.Foreground(t.muted)
 				}
 			}
 			return s
@@ -295,31 +300,38 @@ func (m *model) sidebarView() string {
 				fg(t.muted).Render(" → New tab"),
 		}, "\n"))
 	}
-	state := fg(t.success).Render("● connected")
-	if !c.ready {
+	var state string
+	switch {
+	case c.connecting:
 		state = fg(t.accent).Render("◌ connecting")
+	case c.sess != nil:
+		state = trunc.Render(fg(t.success).Render("● ") + fg(t.muted).Render(c.sess.Server()))
+	default:
+		state = fg(t.err).Render("○ disconnected")
 	}
-	res := c.plug.Resources()
 	lines := []string{
 		section("CONNECTION", ""),
 		"",
 		badge(t, c.kind, true) + " " + fg(t.text).Bold(true).Render(c.name),
 		trunc.Render(fg(t.muted).Render(c.safeURI())),
 		state,
-		"",
-		section("RESOURCES", fmt.Sprint(len(res))),
-		"",
 	}
-	for _, r := range res {
-		mark, name := "  ", fg(t.text).Render(r.Name)
+	if c.err != nil {
+		lines = append(lines, strings.Split(fg(t.err).Width(inner).Render("✗ "+c.err.Error()), "\n")...)
+	}
+	lines = append(lines, "", section("RESOURCES", fmt.Sprint(len(c.resources))), "")
+	for _, r := range c.resources {
+		kind := fg(t.muted).Render(r.Kind)
+		label := ansi.Truncate(r.Name, max(inner-lipgloss.Width(kind)-3, 1), "…")
+		mark, name := "  ", fg(t.text).Render(label)
 		if c.current != nil && *c.current == r {
-			mark, name = fg(t.accent).Render("▸ "), fg(t.accent).Bold(true).Render(r.Name)
+			mark, name = fg(t.accent).Render("▸ "), fg(t.accent).Bold(true).Render(label)
 		}
 		m.clicks = append(m.clicks, area{
 			y: tablineHeight + 1 + len(lines), x0: 0, x1: sidebarWidth,
 			fn: func() tea.Cmd { return m.openResource(c, r) },
 		})
-		lines = append(lines, trunc.Render(spread(mark+name, fg(t.muted).Render(r.Kind), inner)))
+		lines = append(lines, trunc.Render(spread(mark+name, kind, inner)))
 	}
 	return box.Render(strings.Join(lines, "\n"))
 }
@@ -349,8 +361,10 @@ func (m *model) tablineView() string {
 		switch _, live := busy(c); {
 		case live:
 			mark = fg(t.success).Render(" ●")
-		case !c.ready:
+		case c.connecting:
 			mark = fg(t.accent).Render(" ◌")
+		case c.sess == nil:
+			mark = fg(t.err).Render(" ○")
 		}
 		add(" "+num+" "+badge(t, c.kind, i == m.active)+" "+name+mark+" ", func() tea.Cmd {
 			m.switchTab(i)

@@ -1,0 +1,8 @@
+{
+  "kind": "postgres",
+  "code": "PG",
+  "color": "#5b9bd5",
+  "uri": "postgres://postgres:postgres@localhost:5432/postgres",
+  "placeholder": "SELECT * FROM users LIMIT 10;",
+  "command": ["node", "index.ts"]
+}

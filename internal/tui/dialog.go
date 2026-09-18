@@ -150,12 +150,6 @@ func (d *listDialog) view(t theme, width int) string {
 		"↑↓ select · enter run · esc close")
 }
 
-type profile struct {
-	name string
-	kind string
-	uri  string
-}
-
 type connectDialog struct {
 	kind   int
 	focus  int
@@ -169,7 +163,7 @@ type connectDialog struct {
 func newConnect(t theme, check func(string) error, onSave func(profile) tea.Cmd) *connectDialog {
 	d := &connectDialog{check: check, onSave: onSave}
 	d.name = newInput(t, "e.g. local-pg, prod-mongo")
-	d.uri = newInput(t, kinds[0].uri)
+	d.uri = newInput(t, kinds[0].URI)
 	d.name.Focus()
 	return d
 }
@@ -203,9 +197,9 @@ func (d *connectDialog) update(msg tea.Msg) (dialog, tea.Cmd) {
 				return d, d.setFocus(0)
 			}
 			return nil, d.onSave(profile{
-				name: name,
-				kind: kinds[d.kind].name,
-				uri:  or(strings.TrimSpace(d.uri.Value()), d.uri.Placeholder),
+				Name: name,
+				Kind: kinds[d.kind].Name,
+				URI:  or(strings.TrimSpace(d.uri.Value()), d.uri.Placeholder),
 			})
 		}
 		if d.focus == 1 {
@@ -215,7 +209,7 @@ func (d *connectDialog) update(msg tea.Msg) (dialog, tea.Cmd) {
 			case "right", "l":
 				d.kind = (d.kind + 1) % len(kinds)
 			}
-			d.uri.Placeholder = kinds[d.kind].uri
+			d.uri.Placeholder = kinds[d.kind].URI
 			return d, nil
 		}
 		d.err = ""
@@ -242,9 +236,9 @@ func (d *connectDialog) view(t theme, width int) string {
 	}
 	var types []string
 	for i, k := range kinds {
-		types = append(types, badge(t, k.name, i == d.kind))
+		types = append(types, badge(t, k.Name, i == d.kind))
 	}
-	typeRow := strings.Join(types, " ") + "  " + fg(t.text).Render(kinds[d.kind].name)
+	typeRow := strings.Join(types, " ") + "  " + fg(t.text).Render(kinds[d.kind].Name)
 	errLine := ""
 	if d.err != "" {
 		errLine = fg(t.err).Render("✗ " + d.err)

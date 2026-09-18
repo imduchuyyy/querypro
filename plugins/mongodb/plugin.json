@@ -1,0 +1,8 @@
+{
+  "kind": "mongodb",
+  "code": "MG",
+  "color": "#4db33d",
+  "uri": "mongodb://localhost:27017/test",
+  "placeholder": "db.users.find({}).limit(20)",
+  "command": ["node", "index.ts"]
+}

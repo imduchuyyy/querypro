@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+package querypro.plugin.v1;
+
+option go_package = "querypro/internal/plugin/pb";
+
+service PluginService {
+  rpc Connect(ConnectRequest) returns (ConnectResponse);
+  rpc Disconnect(DisconnectRequest) returns (DisconnectResponse);
+  rpc Resources(ResourcesRequest) returns (ResourcesResponse);
+  rpc Actions(ActionsRequest) returns (ActionsResponse);
+  rpc Query(QueryRequest) returns (stream QueryResponse);
+}
+
+message ConnectRequest {
+  string uri = 1;
+}
+
+message ConnectResponse {
+  string session = 1;
+  string server = 2;
+}
+
+message DisconnectRequest {
+  string session = 1;
+}
+
+message DisconnectResponse {}
+
+message Resource {
+  string kind = 1;
+  string name = 2;
+}
+
+message ResourcesRequest {
+  string session = 1;
+}
+
+message ResourcesResponse {
+  repeated Resource resources = 1;
+}
+
+message Action {
+  string name = 1;
+  string query = 2;
+  bool danger = 3;
+}
+
+message ActionsRequest {
+  string session = 1;
+  Resource resource = 2;
+}
+
+message ActionsResponse {
+  repeated Action actions = 1;
+}
+
+message QueryRequest {
+  string session = 1;
+  string query = 2;
+}
+
+message Row {
+  repeated string cells = 1;
+}
+
+message Table {
+  repeated string columns = 1;
+  repeated Row rows = 2;
+}
+
+message Live {}
+
+message QueryResponse {
+  oneof event {
+    Table table = 1;
+    string text = 2;
+    Live live = 3;
+    string line = 4;
+  }
+  string summary = 5;
+}

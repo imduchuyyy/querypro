@@ -6,15 +6,35 @@ on:
   pull_request:
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: plugins/package-lock.json
       - run: make build
       - run: make test
+
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: plugins/package-lock.json
+      - run: make services
+      - run: make it
 
   lint:
     runs-on: ubuntu-latest
@@ -23,6 +43,14 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: plugins/package-lock.json
       - uses: golangci/golangci-lint-action@v9
         with:
           version: v2.13.2
+      - run: make tools
+      - run: make proto && git diff --exit-code
+      - run: make lint

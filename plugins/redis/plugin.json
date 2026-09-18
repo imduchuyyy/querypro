@@ -1,0 +1,8 @@
+{
+  "kind": "redis",
+  "code": "RD",
+  "color": "#e5534b",
+  "uri": "redis://localhost:6379/0",
+  "placeholder": "GET session:42",
+  "command": ["node", "index.ts"]
+}

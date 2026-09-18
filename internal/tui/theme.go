@@ -4,6 +4,8 @@ import (
 	"image/color"
 
 	"charm.land/lipgloss/v2"
+
+	"querypro/internal/plugin"
 )
 
 type theme struct {
@@ -48,35 +50,21 @@ func pill(label string, bg, text color.Color) string {
 		Padding(0, 1).Render(label)
 }
 
-type kind struct {
-	name  string
-	code  string
-	color color.Color
-	uri   string
-}
+var kinds []plugin.Kind
 
-var kinds = []kind{
-	{"postgres", "PG", hex("#5b9bd5"), "postgres://postgres:postgres@localhost:5432/postgres"},
-	{"mongodb", "MG", hex("#4db33d"), "mongodb://localhost:27017"},
-	{"redis", "RD", hex("#e5534b"), "redis://localhost:6379"},
-	{"rabbitmq", "MQ", hex("#ff8a3d"), "amqp://guest:guest@localhost:5672/"},
-	{"kafka", "KF", hex("#b4bccb"), "localhost:9092"},
-	{"loki", "LK", hex("#f2cc0c"), "http://localhost:3100"},
-}
-
-func kindOf(name string) kind {
+func kindOf(name string) plugin.Kind {
 	for _, k := range kinds {
-		if k.name == name {
+		if k.Name == name {
 			return k
 		}
 	}
-	return kind{name: name, code: "??", color: hex("#808080")}
+	return plugin.Kind{Name: name, Code: "??", Color: "#808080"}
 }
 
 func badge(t theme, name string, filled bool) string {
 	k := kindOf(name)
 	if filled {
-		return pill(k.code, k.color, t.bg)
+		return pill(k.Code, hex(k.Color), t.bg)
 	}
-	return fg(k.color).Bold(true).Padding(0, 1).Render(k.code)
+	return fg(hex(k.Color)).Bold(true).Padding(0, 1).Render(k.Code)
 }

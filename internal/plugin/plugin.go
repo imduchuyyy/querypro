@@ -19,11 +19,23 @@ type Result struct {
 	Text    string
 	Summary string
 	Stream  <-chan string
+	Err     func() error
 }
 
-type Plugin interface {
-	Placeholder() string
-	Resources() []Resource
-	Actions(r Resource) []Action
+type Session interface {
+	Server() string
+	Resources(ctx context.Context) ([]Resource, error)
+	Actions(ctx context.Context, r Resource) ([]Action, error)
 	Query(ctx context.Context, q string) (Result, error)
+	Close() error
+}
+
+type Kind struct {
+	Name        string   `json:"kind"`
+	Code        string   `json:"code"`
+	Color       string   `json:"color"`
+	URI         string   `json:"uri"`
+	Placeholder string   `json:"placeholder"`
+	Command     []string `json:"command"`
+	Dir         string   `json:"-"`
 }

@@ -1,0 +1,8 @@
+{
+  "kind": "loki",
+  "code": "LK",
+  "color": "#f2cc0c",
+  "uri": "http://localhost:3100",
+  "placeholder": "{app=\"api\"} |= \"error\"",
+  "command": ["node", "index.ts"]
+}

@@ -1,0 +1,8 @@
+{
+  "kind": "kafka",
+  "code": "KF",
+  "color": "#b4bccb",
+  "uri": "kafka://localhost:9092",
+  "placeholder": "topics",
+  "command": ["node", "index.ts"]
+}
