@@ -1,7 +1,15 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+
+	"querypro/internal/tui"
+)
 
 func main() {
-	fmt.Println("Hello, World!")
+	if err := tui.Run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
