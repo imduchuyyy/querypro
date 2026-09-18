@@ -56,9 +56,10 @@ func newInput(t theme, placeholder string) textinput.Model {
 }
 
 type item struct {
-	label string
-	hint  string
-	run   func() tea.Cmd
+	label  string
+	hint   string
+	danger bool
+	run    func() tea.Cmd
 }
 
 type listDialog struct {
@@ -129,29 +130,47 @@ func (d *listDialog) view(t theme, width int) string {
 		rows = append(rows, fg(t.muted).Render("no results"))
 	}
 	for i, it := range items {
-		mark, label := "  ", fg(t.text).Render(it.label)
-		if i == d.cursor {
-			mark = fg(t.primary).Render("❯ ")
-			label = fg(t.primary).Bold(true).Render(it.label)
+		color := t.text
+		if it.danger {
+			color = t.err
 		}
-		rows = append(rows, mark+spread(label, fg(t.muted).Render(it.hint), inner-2))
+		mark, label := "  ", fg(color).Render(it.label)
+		if i == d.cursor {
+			if !it.danger {
+				color = t.primary
+			}
+			mark = fg(color).Render("❯ ")
+			label = fg(color).Bold(true).Render(it.label)
+		}
+		hint := lipgloss.NewStyle().MaxWidth(max(inner-lipgloss.Width(label)-4, 0)).
+			Render(fg(t.muted).Render(it.hint))
+		rows = append(rows, mark+spread(label, hint, inner-2))
 	}
 	return frame(t, width, d.title, strings.Join(rows, "\n"),
 		"↑↓ select · enter run · esc close")
 }
 
+type profile struct {
+	name string
+	kind string
+	uri  string
+}
+
 type connectDialog struct {
 	kind   int
 	focus  int
+	err    string
 	name   textinput.Model
 	uri    textinput.Model
-	onSave func(connection)
+	check  func(name string) error
+	onSave func(profile) tea.Cmd
 }
 
-func newConnect(t theme, onSave func(connection)) *connectDialog {
-	d := &connectDialog{onSave: onSave}
-	d.name = newInput(t, kinds[0].name)
+func newConnect(t theme, check func(string) error, onSave func(profile) tea.Cmd) *connectDialog {
+	d := &connectDialog{check: check, onSave: onSave}
+	d.name = newInput(t, "e.g. local-pg, prod-mongo")
 	d.uri = newInput(t, kinds[0].uri)
+	d.name.Focus()
 	return d
 }
 
@@ -160,18 +179,12 @@ func (d *connectDialog) setFocus(i int) tea.Cmd {
 	d.name.Blur()
 	d.uri.Blur()
 	switch d.focus {
-	case 1:
+	case 0:
 		return d.name.Focus()
 	case 2:
 		return d.uri.Focus()
 	}
 	return nil
-}
-
-func (d *connectDialog) setKind(i int) {
-	d.kind = (i + len(kinds)) % len(kinds)
-	d.name.Placeholder = kinds[d.kind].name
-	d.uri.Placeholder = kinds[d.kind].uri
 }
 
 func (d *connectDialog) update(msg tea.Msg) (dialog, tea.Cmd) {
@@ -184,26 +197,32 @@ func (d *connectDialog) update(msg tea.Msg) (dialog, tea.Cmd) {
 		case "shift+tab", "up":
 			return d, d.setFocus(d.focus - 1)
 		case "enter":
-			d.onSave(connection{
+			name := strings.TrimSpace(d.name.Value())
+			if err := d.check(name); err != nil {
+				d.err = err.Error()
+				return d, d.setFocus(0)
+			}
+			return nil, d.onSave(profile{
+				name: name,
 				kind: kinds[d.kind].name,
-				name: or(strings.TrimSpace(d.name.Value()), d.name.Placeholder),
 				uri:  or(strings.TrimSpace(d.uri.Value()), d.uri.Placeholder),
 			})
-			return nil, nil
 		}
-		if d.focus == 0 {
+		if d.focus == 1 {
 			switch k.String() {
 			case "left", "h":
-				d.setKind(d.kind - 1)
+				d.kind = (d.kind - 1 + len(kinds)) % len(kinds)
 			case "right", "l":
-				d.setKind(d.kind + 1)
+				d.kind = (d.kind + 1) % len(kinds)
 			}
+			d.uri.Placeholder = kinds[d.kind].uri
 			return d, nil
 		}
+		d.err = ""
 	}
 	var cmd tea.Cmd
 	switch d.focus {
-	case 1:
+	case 0:
 		d.name, cmd = d.name.Update(msg)
 	case 2:
 		d.uri, cmd = d.uri.Update(msg)
@@ -226,17 +245,23 @@ func (d *connectDialog) view(t theme, width int) string {
 		types = append(types, badge(t, k.name, i == d.kind))
 	}
 	typeRow := strings.Join(types, " ") + "  " + fg(t.text).Render(kinds[d.kind].name)
+	errLine := ""
+	if d.err != "" {
+		errLine = fg(t.err).Render("✗ " + d.err)
+	}
 	body := strings.Join([]string{
-		label("Type", 0) + fg(t.muted).Render("  ← →"),
-		typeRow,
-		"",
-		label("Name", 1),
+		label("Name", 0) + fg(t.muted).Render("  used in the tab and in !name queries"),
 		d.name.View(),
+		"",
+		label("Type", 1) + fg(t.muted).Render("  ← →"),
+		typeRow,
 		"",
 		label("URI", 2),
 		d.uri.View(),
+		"",
+		errLine,
 	}, "\n")
-	return frame(t, width, "Connect", body, "tab next field · enter save · esc close")
+	return frame(t, width, "New connection", body, "tab next field · enter save · esc close")
 }
 
 func or(s, fallback string) string {

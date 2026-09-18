@@ -18,6 +18,7 @@ Requires Go (version in `go.mod`).
 make lint-install   # install golangci-lint
 make build          # build
 make run            # run the TUI
+make demo           # run with mock connections for every backend
 make test           # run tests with the race detector
 make lint           # lint
 make fmt            # format code
