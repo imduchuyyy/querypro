@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cell, dispatch, live, quote, table, text, words, type Commands } from "./index.ts";
+import { cell, dispatch, guard, live, quote, Status, table, text, words, type Commands, type Session } from "./index.ts";
 
 test("words splits quoted arguments", () => {
   assert.deepEqual(words(`SET "a key" 'it''s' "x\\ny\\"z" plain`), ["SET", "a key", "its", 'x\ny"z', "plain"]);
@@ -62,4 +62,28 @@ test("live surfaces failures", async () => {
   await assert.rejects(async () => {
     for await (const _ of out.lines);
   }, /boom/);
+});
+
+test("guard reports lost connections as unavailable", async () => {
+  let lost: unknown;
+  const session: Session = {
+    server: "x",
+    resources: async () => [],
+    actions: () => [],
+    query: async (q) => {
+      if (q === "die") {
+        lost = new Error("reset");
+        throw new Error("socket hang up");
+      }
+      if (q === "bad") throw new Error("syntax error");
+      return text("ok");
+    },
+    close: async () => {},
+  };
+  const s = guard(session, () => lost);
+  const signal = new AbortController().signal;
+  await assert.rejects(s.query("bad", signal), /syntax error/);
+  assert.deepEqual(await s.query("fine", signal), text("ok"));
+  await assert.rejects(s.query("die", signal), (err) => err instanceof Status && err.code === 14 && /connection lost: reset/.test(err.message));
+  await assert.rejects(s.resources(), (err) => err instanceof Status && err.code === 14);
 });

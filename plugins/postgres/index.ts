@@ -1,5 +1,5 @@
 import pg from "pg";
-import { describe, serve, table, text, type Action, type Output, type Resource, type Session } from "../sdk/index.ts";
+import { describe, guard, serve, table, text, type Action, type Output, type Resource, type Session } from "../sdk/index.ts";
 
 export function ident(name: string): string {
   return '"' + name.replaceAll('"', '""') + '"';
@@ -37,7 +37,12 @@ FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 ORDE
 async function connect(uri: string): Promise<Session> {
   const config = { connectionString: uri, connectionTimeoutMillis: 10_000, application_name: "querypro" };
   const client = new pg.Client(config);
-  client.on("error", (err) => console.error("postgres:", describe(err)));
+  let lost: unknown;
+  client.on("error", (err) => {
+    lost = err;
+    console.error("postgres:", describe(err));
+  });
+  client.on("end", () => (lost ??= new Error("server closed the connection")));
   await client.connect();
   const version = await client.query("SHOW server_version");
   const pid = (client as unknown as { processID: number }).processID;
@@ -66,7 +71,7 @@ async function connect(uri: string): Promise<Session> {
     }
   };
 
-  return {
+  const session: Session = {
     server: `PostgreSQL ${version.rows[0].server_version}`,
     async resources() {
       const { rows } = await client.query<{ schema: string; name: string; type: string }>(listTables);
@@ -98,6 +103,7 @@ async function connect(uri: string): Promise<Session> {
       await client.end();
     },
   };
+  return guard(session, () => lost);
 }
 
 if (import.meta.main) serve(connect);

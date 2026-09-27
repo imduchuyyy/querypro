@@ -114,5 +114,7 @@ The contract is `proto/querypro/plugin/v1/plugin.proto`.
 3. `Connect(uri)` returns a session id used by every other call.
 4. `Query` streams one `table` or `text` event for a finished result, or
    one `live` event followed by `line` events until the core cancels.
-5. The plugin exits when its stdin closes. If it dies, the core marks its
+5. A call on a session whose backend connection is gone fails with
+   `UNAVAILABLE`; the core then reconnects the tab.
+6. The plugin exits when its stdin closes. If it dies, the core marks its
    tabs disconnected and respawns it on the next connect.

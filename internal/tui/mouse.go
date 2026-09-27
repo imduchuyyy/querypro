@@ -51,7 +51,10 @@ func (s selection) cols(line, width int) (int, int, bool) {
 
 type noticeMsg struct{ id int }
 
-var writeClipboard = clipboard.WriteAll
+var (
+	writeClipboard = clipboard.WriteAll
+	noticeTTL      = 3 * time.Second
+)
 
 func (m *model) origin() (int, int) {
 	ox := 2
@@ -132,7 +135,7 @@ func (m *model) flash(notice string) tea.Cmd {
 	m.notice = notice
 	m.noticeID++
 	id := m.noticeID
-	return tea.Tick(3*time.Second, func(time.Time) tea.Msg { return noticeMsg{id} })
+	return tea.Tick(noticeTTL, func(time.Time) tea.Msg { return noticeMsg{id} })
 }
 
 func (m *model) highlight(view string) string {

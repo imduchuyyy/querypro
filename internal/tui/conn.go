@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -43,12 +44,14 @@ type (
 		err     error
 	}
 	resourcesMsg struct {
-		id  int
-		res []plugin.Resource
-		err error
+		id   int
+		sess plugin.Session
+		res  []plugin.Resource
+		err  error
 	}
 	actionsMsg struct {
 		id   int
+		sess plugin.Session
 		r    plugin.Resource
 		acts []plugin.Action
 		err  error
@@ -56,12 +59,23 @@ type (
 	}
 )
 
+var secrets = []struct {
+	re   *regexp.Regexp
+	with string
+}{
+	{regexp.MustCompile(`(?i)(password\s*=\s*)\S+`), "${1}xxxxx"},
+	{regexp.MustCompile(`([^\s:/@]+):[^\s/]*@`), "${1}:xxxxx@"},
+}
+
 func (c *connection) safeURI() string {
-	u, err := url.Parse(c.uri)
-	if err != nil || u.User == nil {
-		return c.uri
+	if u, err := url.Parse(c.uri); err == nil && u.User != nil {
+		return u.Redacted()
 	}
-	return u.Redacted()
+	s := c.uri
+	for _, r := range secrets {
+		s = r.re.ReplaceAllString(s, r.with)
+	}
+	return s
 }
 
 func (m *model) byID(id int) *connection {
@@ -118,7 +132,7 @@ func (m *model) refresh(c *connection) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), rpcTimeout)
 		defer cancel()
 		res, err := s.Resources(ctx)
-		return resourcesMsg{id, res, err}
+		return resourcesMsg{id: id, sess: s, res: res, err: err}
 	}
 }
 
@@ -126,6 +140,9 @@ func (m *model) refreshed(msg resourcesMsg) tea.Cmd {
 	c := m.byID(msg.id)
 	if c == nil {
 		return nil
+	}
+	if cmd := m.lost(c, msg.sess, msg.err); cmd != nil {
+		return cmd
 	}
 	c.err = msg.err
 	if msg.err != nil {
@@ -144,12 +161,15 @@ func (m *model) fetchActions(c *connection, r plugin.Resource, run bool) tea.Cmd
 		ctx, cancel := context.WithTimeout(context.Background(), rpcTimeout)
 		defer cancel()
 		acts, err := s.Actions(ctx, r)
-		return actionsMsg{id: id, r: r, acts: acts, err: err, run: run}
+		return actionsMsg{id: id, sess: s, r: r, acts: acts, err: err, run: run}
 	}
 }
 
 func (m *model) gotActions(msg actionsMsg) tea.Cmd {
 	c := m.byID(msg.id)
+	if cmd := m.lost(c, msg.sess, msg.err); cmd != nil {
+		return cmd
+	}
 	switch {
 	case c == nil || c != m.conn():
 		return nil
@@ -186,6 +206,13 @@ func (m *model) notConnected(c *connection) tea.Cmd {
 
 func (m *model) fail(err error) tea.Cmd {
 	return m.flash(fg(m.t().err).Render("✗ " + err.Error()))
+}
+
+func (m *model) lost(c *connection, s plugin.Session, err error) tea.Cmd {
+	if c == nil || s == nil || c.sess != s || !errors.Is(err, plugin.ErrDisconnected) {
+		return nil
+	}
+	return tea.Batch(m.fail(fmt.Errorf("%s: %w, reconnecting", c.name, err)), m.connect(c))
 }
 
 func (m *model) pluginExited(e plugin.Exit) {

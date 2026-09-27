@@ -65,6 +65,10 @@ typechecks.
   errors surface as query errors, and return a stop function.
 - Command languages use `dispatch` with keys like `"tail <topic> [from]"`:
   `<arg>` is required, `[arg]` optional, and usage errors come for free.
+- Drivers that do not reconnect by themselves (pg, amqplib) wrap their
+  session in `guard(session, () => lost)`: once the connection is lost,
+  calls fail with gRPC `UNAVAILABLE`, which the core maps to
+  `plugin.ErrDisconnected` and the TUI answers with an automatic reconnect.
 - The SDK caps tables at 1000 rows, cells at 500 chars, text at 1 MB.
 - Integration tests for every plugin live in `internal/plugin/host_test.go`
   (`TestBackends`); new plugins and actions belong there.
@@ -89,11 +93,15 @@ dialogs), `persist.go` (store files), `view.go`, `dialog.go`, `mouse.go`,
   sizes every widget from the rendered heights of the prompt and footer.
 - The TUI depends on the small `backend` interface, not on `*plugin.Host`;
   tests use `fakeHost`/`fakeSession` in `app_test.go` and `do(m, cmd)` to
-  run commands synchronously.
+  run commands synchronously (it follows returned commands; `TestMain` sets
+  `noticeTTL = 0` so flashes do not sleep).
 - Every plugin call is async: `connect`, `refresh` and `fetchActions` return
   a `tea.Cmd` producing `connectedMsg`, `resourcesMsg` or `actionsMsg`.
   `connection.attempt` drops stale connect results. A tab is connected when
-  `sess != nil`; running a query on a disconnected tab starts a reconnect.
+  `sess != nil`; running a query on a disconnected tab starts a reconnect,
+  and `lost` reconnects when a call fails with `plugin.ErrDisconnected`.
+- `safeURI` redacts passwords for display, including scheme-less and
+  keyword (`password=`) forms; never render `connection.uri` directly.
 - One tab per connection. Each `connection` owns its `entries`, input
   `draft` and scroll `offset`; always change tabs via `switchTab`. Queries
   and streams keep running in background tabs; `esc` stops only the current

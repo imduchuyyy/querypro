@@ -42,6 +42,28 @@ export class Status extends Error {
   }
 }
 
+export function guard(session: Session, lost: () => unknown): Session {
+  const run = async <T>(fn: () => Promise<T>): Promise<T> => {
+    const before = lost();
+    if (before) throw disconnected(before);
+    try {
+      return await fn();
+    } catch (err) {
+      const cause = lost();
+      throw cause ? disconnected(cause) : err;
+    }
+  };
+  return {
+    ...session,
+    resources: () => run(() => session.resources()),
+    query: (q, signal) => run(() => session.query(q, signal)),
+  };
+}
+
+function disconnected(cause: unknown): Status {
+  return new Status(grpc.status.UNAVAILABLE, `connection lost: ${describe(cause)}`);
+}
+
 export function describe(err: unknown): string {
   if (err instanceof AggregateError && err.errors.length > 0) {
     return err.errors.map(describe).join("; ");

@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -282,5 +283,37 @@ func TestPostgresCancel(t *testing.T) {
 	}
 	if got := mustQuery(t, s, "SELECT 42"); !strings.Contains(got, "42") || time.Since(start) > 10*time.Second {
 		t.Fatalf("session stuck after cancel: %q after %s", got, time.Since(start))
+	}
+}
+
+func TestLostConnection(t *testing.T) {
+	if os.Getenv("QUERYPRO_IT") == "" {
+		t.Skip("set QUERYPRO_IT=1 with the docker compose services running")
+	}
+	h := newTestHost(t)
+	for _, c := range []struct{ kind, uri, query string }{
+		{"postgres", env("QUERYPRO_IT_POSTGRES", "postgres://postgres:postgres@localhost:5432/postgres"), "SELECT 1"},
+		{"rabbitmq", env("QUERYPRO_IT_RABBITMQ", "amqp://guest:guest@localhost:5672/"), "declare qp_lost"},
+	} {
+		t.Run(c.kind, func(t *testing.T) {
+			s, err := h.Connect(context.Background(), c.kind, c.uri)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if out, err := exec.Command("docker", "compose", "restart", c.kind).CombinedOutput(); err != nil {
+				t.Skipf("cannot restart %s: %s", c.kind, out)
+			}
+			deadline := time.Now().Add(20 * time.Second)
+			for {
+				_, err := s.Query(context.Background(), c.query)
+				if errors.Is(err, ErrDisconnected) {
+					return
+				}
+				if time.Now().After(deadline) {
+					t.Fatalf("want ErrDisconnected after restart, got %v", err)
+				}
+				time.Sleep(time.Second)
+			}
+		})
 	}
 }

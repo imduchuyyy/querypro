@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"time"
 
@@ -14,7 +15,10 @@ import (
 
 const disconnectTimeout = 5 * time.Second
 
-var errExited = errors.New("plugin stopped, reconnect")
+var (
+	ErrDisconnected = errors.New("disconnected")
+	errExited       = fmt.Errorf("%w: plugin stopped", ErrDisconnected)
+)
 
 type session struct {
 	p      *proc
@@ -31,6 +35,8 @@ func rpcErr(err error) error {
 		return context.Canceled
 	case st.Code() == codes.DeadlineExceeded:
 		return context.DeadlineExceeded
+	case st.Code() == codes.Unavailable:
+		return fmt.Errorf("%w: %s", ErrDisconnected, st.Message())
 	}
 	return errors.New(st.Message())
 }

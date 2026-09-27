@@ -1,5 +1,5 @@
 import amqp, { type Channel, type ChannelModel, type ConsumeMessage, type GetMessage } from "amqplib";
-import { cell, describe, dispatch, live, quote, serve, table, text, type Commands, type Session } from "../sdk/index.ts";
+import { cell, describe, dispatch, guard, live, quote, serve, table, text, type Commands, type Session } from "../sdk/index.ts";
 
 export function endpoints(uri: string) {
   const u = new URL(uri);
@@ -23,7 +23,9 @@ function line(msg: ConsumeMessage): string {
 async function connect(uri: string): Promise<Session> {
   const ep = endpoints(uri);
   const conn: ChannelModel = await amqp.connect(ep.amqp, { timeout: 10_000, clientProperties: { connection_name: "querypro" } });
+  let lost: unknown;
   conn.on("error", (err) => console.error("rabbitmq:", describe(err)));
+  conn.on("close", (err) => (lost ??= err ?? new Error("connection closed")));
   const props = (conn.connection as unknown as { serverProperties?: Record<string, unknown> }).serverProperties ?? {};
   const vhost = encodeURIComponent(ep.vhost);
 
@@ -123,7 +125,7 @@ async function connect(uri: string): Promise<Session> {
       }),
   };
 
-  return {
+  const session: Session = {
     server: `RabbitMQ ${props.version ?? "unknown"}`,
     async resources() {
       const [qs, xs] = await Promise.all([
@@ -154,6 +156,7 @@ async function connect(uri: string): Promise<Session> {
       await conn.close();
     },
   };
+  return guard(session, () => lost);
 }
 
 if (import.meta.main) serve(connect);

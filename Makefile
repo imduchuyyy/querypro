@@ -29,7 +29,7 @@ test: $(DEPS)
 	cd plugins && npm test
 
 it: $(DEPS)
-	QUERYPRO_IT=1 go test -race -count=1 -run 'TestBackends|TestPostgresCancel' -v ./internal/plugin/
+	QUERYPRO_IT=1 go test -race -count=1 -run 'TestBackends|TestPostgresCancel|TestLostConnection' -v ./internal/plugin/
 
 lint: $(DEPS)
 	$(GOBIN)/golangci-lint run

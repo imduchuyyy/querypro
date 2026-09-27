@@ -79,11 +79,12 @@ export async function evaluate(db: Db, q: string, signal: AbortSignal): Promise<
   if (value instanceof AbstractCursor) {
     const docs: unknown[] = [];
     for await (const doc of value) {
-      if (signal.aborted || docs.length === maxDocs) break;
+      if (signal.aborted || docs.length > maxDocs) break;
       docs.push(doc);
     }
     await value.close();
-    const more = docs.length === maxDocs ? `, showing first ${maxDocs}` : "";
+    const more = docs.length > maxDocs ? `, showing first ${maxDocs}` : "";
+    docs.length = Math.min(docs.length, maxDocs);
     return text(docs.map(pretty).join("\n"), plural(docs.length, "document") + more);
   }
   if (value === undefined) return text("", "ok");

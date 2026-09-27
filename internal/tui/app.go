@@ -32,6 +32,7 @@ type backend interface {
 type entry struct {
 	id      int
 	conn    *connection
+	sess    plugin.Session
 	at      time.Time
 	query   string
 	running bool
@@ -203,7 +204,7 @@ func (m *model) handle(msg tea.Msg) tea.Cmd {
 			return wait(e.id, msg.res.Stream)
 		}
 		e.cancel()
-		return nil
+		return m.lost(e.conn, e.sess, e.err)
 	case lineMsg:
 		tab, e := m.entry(msg.id)
 		if e == nil {
@@ -222,6 +223,7 @@ func (m *model) handle(msg tea.Msg) tea.Cmd {
 				e.err = e.res.Err()
 			}
 			e.cancel()
+			return m.lost(e.conn, e.sess, e.err)
 		}
 		return nil
 	case noticeMsg:
@@ -344,7 +346,7 @@ func (m *model) run(raw string) tea.Cmd {
 		return tea.Batch(save, m.connect(c))
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	e.running, e.cancel = true, cancel
+	e.running, e.cancel, e.sess = true, cancel, c.sess
 	id, s := e.id, c.sess
 	return tea.Batch(save, func() tea.Msg {
 		res, err := s.Query(ctx, q)

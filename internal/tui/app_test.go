@@ -4,8 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -34,10 +37,10 @@ func (fakeHost) Connect(_ context.Context, kind, uri string) (plugin.Session, er
 	return &fakeSession{}, nil
 }
 
-type fakeSession struct{ closed bool }
+type fakeSession struct{ closed atomic.Bool }
 
 func (s *fakeSession) Server() string { return "fake 1.0" }
-func (s *fakeSession) Close() error   { s.closed = true; return nil }
+func (s *fakeSession) Close() error   { s.closed.Store(true); return nil }
 
 func (s *fakeSession) Resources(context.Context) ([]plugin.Resource, error) {
 	return []plugin.Resource{{Kind: "table", Name: "users"}, {Kind: "table", Name: "orders"}}, nil
@@ -67,8 +70,15 @@ func (s *fakeSession) Query(ctx context.Context, q string) (plugin.Result, error
 		return plugin.Result{Stream: ch, Summary: "consuming", Err: func() error { return nil }}, nil
 	case strings.HasPrefix(q, "fail"):
 		return plugin.Result{}, errors.New("boom")
+	case strings.HasPrefix(q, "drop"):
+		return plugin.Result{}, fmt.Errorf("%w: connection lost: reset", plugin.ErrDisconnected)
 	}
 	return plugin.Result{Columns: []string{"id", "q"}, Rows: [][]string{{"1", q}, {"2", q}}, Summary: "2 rows"}, nil
+}
+
+func TestMain(m *testing.M) {
+	noticeTTL = 0
+	os.Exit(m.Run())
 }
 
 func do(m *model, cmd tea.Cmd) {
@@ -80,9 +90,10 @@ func do(m *model, cmd tea.Cmd) {
 		for _, c := range msg {
 			do(m, c)
 		}
-	case noticeMsg:
+	case noticeMsg, lineMsg, endMsg:
 	default:
-		m.Update(msg)
+		_, next := m.Update(msg)
+		do(m, next)
 	}
 }
 
@@ -113,8 +124,13 @@ func TestModel(t *testing.T) {
 	do(m, m.saveProfile(profile{Name: "a", Kind: "postgres", URI: "postgres://u:secret@h/db"}))
 	do(m, m.saveProfile(profile{Name: "b", Kind: "redis", URI: "redis://h:6379"}))
 
-	if got := m.conns[0].safeURI(); strings.Contains(got, "secret") {
-		t.Fatalf("password leaked: %s", got)
+	for _, uri := range []string{
+		"postgres://u:secret@h/db", "u:secret@h1:9092,h2:9092", "kafka://u:p@secret@h:9092",
+		"host=db user=app password=secret", "postgres://u:secret%zz@h/db", "redis://:secret@h:6379",
+	} {
+		if got := (&connection{uri: uri}).safeURI(); strings.Contains(got, "secret") {
+			t.Errorf("password leaked: %s", got)
+		}
 	}
 	if c := m.conns[0]; c.sess == nil || len(c.resources) != 2 || c.connecting {
 		t.Fatalf("not connected: sess=%v resources=%d", c.sess, len(c.resources))
@@ -285,9 +301,24 @@ func TestConnectionLifecycle(t *testing.T) {
 		t.Fatal("a stale connect result replaced a newer session")
 	}
 
+	before := m.conns[0].sess
+	do(m, m.run("drop it"))
+	if e := m.conns[0].entries[len(m.conns[0].entries)-1]; !errors.Is(e.err, plugin.ErrDisconnected) {
+		t.Fatalf("lost connection error: %v", e.err)
+	}
+	if m.conns[0].sess == nil || m.conns[0].sess == before {
+		t.Fatal("a lost connection should reconnect")
+	}
+	for i := 0; !before.(*fakeSession).closed.Load(); i++ {
+		if i == 100 {
+			t.Fatal("the lost session was not closed")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
 	s := m.conns[1].sess.(*fakeSession)
 	m.closeAll()
-	if !s.closed {
+	if !s.closed.Load() {
 		t.Fatal("closeAll should close sessions")
 	}
 }
