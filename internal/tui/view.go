@@ -124,16 +124,22 @@ func indent(s, first, rest string) string {
 
 func (m *model) outputView() string {
 	c := m.conn()
+	m.rows = nil
 	if c == nil || len(c.entries) == 0 {
 		return m.welcomeView()
 	}
 	var blocks []string
+	at := 0
 	for _, e := range c.entries {
-		key := fmt.Sprint(m.vp.Width(), m.theme, e.running, e.live, e.err, len(e.lines), e.elapsed)
+		key := fmt.Sprint(m.vp.Width(), m.theme, e.running, e.live, e.err, len(e.lines), e.elapsed, e.colOffset)
 		if e.viewKey != key {
-			e.view, e.viewKey = m.entryView(e), key
+			e.view, e.rowLine, e.viewKey = m.entryView(e), m.rowLine, key
+		}
+		if e.rowLine > 0 {
+			m.rows = append(m.rows, rowSpan{from: at + e.rowLine, to: at + e.rowLine + len(e.res.Rows), e: e})
 		}
 		blocks = append(blocks, e.view, "")
+		at += lipgloss.Height(e.view) + 1
 	}
 	return strings.Join(blocks, "\n")
 }
@@ -154,6 +160,12 @@ func (m *model) entryView(e *entry) string {
 	}
 	parts := []string{indent(strings.Join(qs, "\n"), fg(t.primary).Render("❯ "), "  ")}
 
+	var wide string
+	from, shown := 0, len(e.res.Columns)
+	if shown > 0 {
+		wide, from, shown = m.tableView(e.res.Columns, e.res.Rows, w-3, e.colOffset)
+	}
+
 	took := fmt.Sprintf(" · %dms", e.elapsed.Milliseconds())
 	var status string
 	switch {
@@ -168,12 +180,23 @@ func (m *model) entryView(e *entry) string {
 		status = fg(t.muted).Render(fmt.Sprintf("■ %s · stopped · %d messages", e.res.Summary, len(e.lines)))
 	default:
 		status = fg(t.success).Render("✓ ") + fg(t.muted).Render(e.res.Summary+took)
+		if shown < len(e.res.Columns) {
+			status += fg(t.accent).Render(fmt.Sprintf(" · columns %d-%d of %d",
+				from+1, from+shown, len(e.res.Columns))) + fg(t.muted).Render(" · shift+←→")
+		}
 	}
 	parts = append(parts, indent(status, fg(t.border).Render("╰─ "), "   "))
 
+	m.rowLine = 0
 	var body []string
-	if len(e.res.Columns) > 0 {
-		body = append(body, m.tableView(e.res.Columns, e.res.Rows, w-3))
+	if wide != "" {
+		if len(e.res.Rows) > 0 {
+			for _, p := range parts {
+				m.rowLine += lipgloss.Height(p)
+			}
+			m.rowLine += 3
+		}
+		body = append(body, wide)
 	}
 	if e.res.Text != "" {
 		body = append(body, fg(t.text).Width(max(w-3, 1)).Render(e.res.Text))
@@ -194,8 +217,71 @@ func (m *model) entryView(e *entry) string {
 	return strings.Join(parts, "\n")
 }
 
-func (m *model) tableView(cols []string, rows [][]string, w int) string {
+func cellWidths(cols []string, rows [][]string) ([]int, [][]string) {
+	widths := make([]int, len(cols))
+	for i, c := range cols {
+		widths[i] = ansi.StringWidth(c)
+	}
+	flat := make([][]string, len(rows))
+	for i, r := range rows {
+		flat[i] = make([]string, min(len(r), len(cols)))
+		for j := range flat[i] {
+			flat[i][j] = strings.ReplaceAll(strings.ReplaceAll(r[j], "\r\n", "↵"), "\n", "↵")
+			widths[j] = max(widths[j], ansi.StringWidth(flat[i][j]))
+		}
+	}
+	return widths, flat
+}
+
+func fitColumns(cols []string, rows [][]string, w, offset int) ([]string, [][]string, int) {
+	widths, flat := cellWidths(cols, rows)
+	from := min(max(offset, 0), len(cols)-1)
+	budget, to := w-1, from
+	for to < len(cols) {
+		if budget -= min(widths[to], previewWidth) + 3; budget < 0 && to > from {
+			break
+		}
+		to++
+	}
+	cut := append([]string(nil), cols[from:to]...)
+	shown := make([][]string, len(flat))
+	avail, total := max(w-3*(to-from)-1, to-from), 0
+	for _, x := range widths[from:to] {
+		total += x
+	}
+	for i, r := range flat {
+		shown[i] = append([]string(nil), r[min(from, len(r)):min(to, len(r))]...)
+	}
+	if total <= avail {
+		return cut, shown, from
+	}
+	limit := 1
+	for lo, hi := 1, avail; lo <= hi; {
+		mid := (lo + hi) / 2
+		sum := 0
+		for _, x := range widths[from:to] {
+			sum += min(x, mid)
+		}
+		if sum <= avail {
+			limit, lo = mid, mid+1
+		} else {
+			hi = mid - 1
+		}
+	}
+	for i, c := range cut {
+		cut[i] = ansi.Truncate(c, limit, "…")
+	}
+	for _, r := range shown {
+		for j := range r {
+			r[j] = ansi.Truncate(r[j], limit, "…")
+		}
+	}
+	return cut, shown, from
+}
+
+func (m *model) tableView(cols []string, rows [][]string, w, offset int) (string, int, int) {
 	t := m.t()
+	cols, rows, from := fitColumns(cols, rows, w, offset)
 	tb := table.New().
 		Border(lipgloss.RoundedBorder()).
 		BorderStyle(fg(t.border)).
@@ -218,11 +304,7 @@ func (m *model) tableView(cols []string, rows [][]string, w int) string {
 			}
 			return s
 		})
-	out := tb.Render()
-	if lipgloss.Width(out) > w {
-		out = tb.Width(max(w, 4)).Render()
-	}
-	return out
+	return tb.Render(), from, len(cols)
 }
 
 func (m *model) connLabel() string {

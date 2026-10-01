@@ -106,7 +106,13 @@ func (m *model) handleMouse(msg tea.MouseMsg) tea.Cmd {
 		if text := m.selectedText(); m.sel.shown && text != "" {
 			return m.copy(text)
 		}
+		line := m.sel.from.line
 		m.sel = selection{}
+		for _, r := range m.rows {
+			if line >= r.from && line < r.to {
+				return open(m.rowDetail(r.e, line-r.from))
+			}
+		}
 	}
 	return nil
 }

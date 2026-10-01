@@ -18,6 +18,7 @@ import (
 )
 
 const (
+	previewWidth  = 40
 	sidebarWidth  = 36
 	maxInputLines = 8
 	maxLiveLines  = 200
@@ -30,20 +31,27 @@ type backend interface {
 }
 
 type entry struct {
-	id      int
-	conn    *connection
-	sess    plugin.Session
-	at      time.Time
-	query   string
-	running bool
-	live    bool
-	elapsed time.Duration
-	res     plugin.Result
-	err     error
-	lines   []string
-	cancel  context.CancelFunc
-	view    string
-	viewKey string
+	id        int
+	conn      *connection
+	sess      plugin.Session
+	at        time.Time
+	query     string
+	running   bool
+	live      bool
+	elapsed   time.Duration
+	res       plugin.Result
+	err       error
+	lines     []string
+	cancel    context.CancelFunc
+	view      string
+	rowLine   int
+	colOffset int
+	viewKey   string
+}
+
+type rowSpan struct {
+	from, to int
+	e        *entry
 }
 
 type (
@@ -80,6 +88,8 @@ type model struct {
 	dlg      dialog
 	sel      selection
 	clicks   []area
+	rows     []rowSpan
+	rowLine  int
 	notice   string
 	noticeID int
 	comp     *completion
@@ -232,7 +242,14 @@ func (m *model) handle(msg tea.Msg) tea.Cmd {
 		}
 		return nil
 	case tea.MouseWheelMsg:
-		m.vp, _ = m.vp.Update(msg)
+		switch msg.Button {
+		case tea.MouseWheelLeft:
+			m.shiftColumns(-1)
+		case tea.MouseWheelRight:
+			m.shiftColumns(1)
+		default:
+			m.vp, _ = m.vp.Update(msg)
+		}
 		return nil
 	case tea.MouseClickMsg, tea.MouseMotionMsg, tea.MouseReleaseMsg:
 		return m.handleMouse(msg.(tea.MouseMsg))
@@ -296,6 +313,12 @@ func (m *model) key(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 	case "ctrl+b":
 		m.sidebar = !m.sidebar
 		return m.saveSettings(), true
+	case "shift+left":
+		m.shiftColumns(-1)
+		return nil, true
+	case "shift+right":
+		m.shiftColumns(1)
+		return nil, true
 	case "pgup":
 		m.vp.PageUp()
 		return nil, true
@@ -438,6 +461,19 @@ func (m *model) resolve(name string) (*connection, error) {
 		}
 	}
 	return nil, fmt.Errorf("no connection matches %q", name)
+}
+
+func (m *model) shiftColumns(step int) {
+	c := m.conn()
+	if c == nil {
+		return
+	}
+	for i := len(c.entries) - 1; i >= 0; i-- {
+		if e := c.entries[i]; len(e.res.Columns) > 0 {
+			e.colOffset = min(max(e.colOffset+step, 0), len(e.res.Columns)-1)
+			return
+		}
+	}
 }
 
 func stop(c *connection) {

@@ -150,6 +150,61 @@ func (d *listDialog) view(t theme, width int) string {
 		"↑↓ select · enter run · esc close")
 }
 
+type detailDialog struct {
+	title  string
+	pairs  [][2]string
+	offset int
+	height func() int
+	copy   func(string) tea.Cmd
+}
+
+func (d *detailDialog) text() string {
+	var lines []string
+	for _, p := range d.pairs {
+		lines = append(lines, p[0]+": "+p[1])
+	}
+	return strings.Join(lines, "\n")
+}
+
+func (d *detailDialog) update(msg tea.Msg) (dialog, tea.Cmd) {
+	k, ok := msg.(tea.KeyPressMsg)
+	if !ok {
+		return d, nil
+	}
+	switch k.String() {
+	case "esc", "enter", "q":
+		return nil, nil
+	case "up", "k":
+		d.offset--
+	case "down", "j":
+		d.offset++
+	case "pgup":
+		d.offset -= 10
+	case "pgdown":
+		d.offset += 10
+	case "c":
+		return d, d.copy(d.text())
+	}
+	return d, nil
+}
+
+func (d *detailDialog) view(t theme, width int) string {
+	inner := width - 6
+	var lines []string
+	for _, p := range d.pairs {
+		lines = append(lines, fg(t.accent).Bold(true).Render(p[0]))
+		lines = append(lines, strings.Split(fg(t.text).Width(inner).Render(or(p[1], "(empty)")), "\n")...)
+		lines = append(lines, "")
+	}
+	hint := "c copy · esc close"
+	if h := d.height(); len(lines) > h {
+		d.offset = min(max(d.offset, 0), len(lines)-h)
+		lines = lines[d.offset : d.offset+h]
+		hint = "↑↓ scroll · " + hint
+	}
+	return frame(t, width, d.title, strings.Join(lines, "\n"), hint)
+}
+
 type connectDialog struct {
 	kind   int
 	focus  int

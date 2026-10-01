@@ -24,7 +24,10 @@ make demo                        # start every backend in docker, seeded tabs
 
 `ctrl+t` opens a connection, `enter` runs a query, `ctrl+o` opens a resource,
 `ctrl+x` shows its actions, `/` opens the command palette, `!name query` runs
-against another tab. The palette's Help lists every key.
+against another tab. Wide results stay readable: a table shows the columns
+that fit, `shift+←/→` (or a horizontal wheel) scrolls to the rest, and
+clicking a row opens every column of it in a popup (`c` copies it). The
+palette's Help lists every key.
 
 | Plugin   | URI                                                   | Queries                                                     |
 | -------- | ----------------------------------------------------- | ----------------------------------------------------------- |

@@ -116,6 +116,15 @@ dialogs), `persist.go` (store files), `view.go`, `dialog.go`, `mouse.go`,
   `listDialog` backs the palette, settings, switcher and help; items are
   rebuilt on every render so values like the theme stay live. Danger
   actions and deletes go through `confirm`.
+- Tables never overflow: `fitColumns` shows a window of columns starting at
+  `entry.colOffset` (as many as fit while no column claims more than
+  `previewWidth`), then truncates the rest with `…`, so every row stays one
+  line (newlines become `↵`). The status line names the visible range;
+  `shift+←/→` and a horizontal wheel move the window via `shiftColumns`,
+  which acts on the last table in the tab. One line per row keeps `m.rows`
+  (content line ranges per table, built in `outputView` from each entry's
+  `rowLine`) in step with the screen; clicking a row without dragging opens
+  `detailDialog` with every column, untruncated.
 - Lip Gloss v2 `Width`/`Height` include border and padding.
 - Mouse (`mouse.go`): the tabline and sidebar append clickable `area`s to
   `m.clicks` on every render. Drag in the output selects in content

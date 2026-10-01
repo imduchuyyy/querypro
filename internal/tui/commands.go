@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -117,6 +118,23 @@ func (m *model) actionList(r plugin.Resource, acts []plugin.Action) dialog {
 	})
 }
 
+func (m *model) rowDetail(e *entry, row int) dialog {
+	cells := e.res.Rows[row]
+	pairs := make([][2]string, len(e.res.Columns))
+	for i, c := range e.res.Columns {
+		pairs[i] = [2]string{c, ""}
+		if i < len(cells) {
+			pairs[i][1] = cells[i]
+		}
+	}
+	return &detailDialog{
+		title:  fmt.Sprintf("Row %d of %d", row+1, len(e.res.Rows)),
+		pairs:  pairs,
+		height: func() int { return max(m.height-12, 4) },
+		copy:   m.copy,
+	}
+}
+
 func (m *model) confirm(label string, yes func() tea.Cmd) dialog {
 	return newList(m.t(), "Are you sure?", false, func() []item {
 		return []item{
@@ -195,6 +213,8 @@ func (m *model) help() dialog {
 		{"Commands", "/ or ctrl+p"},
 		{"Open resource", "ctrl+o"},
 		{"Resource actions", "ctrl+x"},
+		{"Full row in a popup", "click a table row"},
+		{"More table columns", "shift+← →"},
 		{"Stop query or stream", "esc"},
 		{"Next / previous tab", "tab / shift+tab"},
 		{"Jump to tab", "alt+1..9"},
