@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"querypro/internal/plugin"
 )
@@ -239,5 +240,26 @@ func TestLongList(t *testing.T) {
 	}
 	if out := m.View().Content; lipgloss.Height(out) != 20 || !strings.Contains(out, "Quit") {
 		t.Fatalf("grouped list should scroll within the screen\n%s", out)
+	}
+}
+
+func TestJSONText(t *testing.T) {
+	m := newModel(fakeHost{}, nil)
+	for in, want := range map[string]string{
+		`{"a":[1,true],"b":"x\"y"}`: "{\n  \"a\": [\n    1,\n    true\n  ],\n  \"b\": \"x\\\"y\"\n}",
+		"{\"a\":1}\n{\"a\":2}":      "{\n  \"a\": 1\n}\n{\n  \"a\": 2\n}",
+	} {
+		got, ok := prettyJSON(in)
+		if !ok || got != want {
+			t.Errorf("prettyJSON(%q) = %q, %v", in, got, ok)
+		}
+		if plain := ansi.Strip(highlightJSON(m.t(), got)); plain != got {
+			t.Errorf("highlight changed the text: %q", plain)
+		}
+	}
+	for _, in := range []string{`"just a string"`, "42", "OK", "{broken", "(integer) 1"} {
+		if _, ok := prettyJSON(in); ok {
+			t.Errorf("%q should not be treated as JSON", in)
+		}
 	}
 }

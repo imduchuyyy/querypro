@@ -16,6 +16,11 @@ export function format(v: unknown, indent = ""): string {
       .join("\n");
   }
   const s = Buffer.isBuffer(v) ? v.toString() : String(v);
+  if (/^\s*[{[]/.test(s)) {
+    try {
+      return JSON.stringify(JSON.parse(s), null, 2).replaceAll("\n", "\n" + indent);
+    } catch {}
+  }
   return s === "OK" ? s : JSON.stringify(s);
 }
 

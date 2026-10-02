@@ -282,7 +282,7 @@ func (d *detailDialog) view(t theme, width int) string {
 	var lines []string
 	for _, p := range d.pairs {
 		lines = append(lines, fg(t.accent).Bold(true).Render(p[0]))
-		lines = append(lines, strings.Split(fg(t.text).Width(inner).Render(or(p[1], "(empty)")), "\n")...)
+		lines = append(lines, strings.Split(textView(t, or(p[1], "(empty)"), inner), "\n")...)
 		lines = append(lines, "")
 	}
 	hint := "c copy · esc close"

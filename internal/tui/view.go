@@ -1,7 +1,10 @@
 package tui
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -202,7 +205,7 @@ func (m *model) entryView(e *entry) string {
 		body = append(body, wide)
 	}
 	if e.res.Text != "" {
-		body = append(body, fg(t.text).Width(max(w-3, 1)).Render(e.res.Text))
+		body = append(body, textView(t, e.res.Text, max(w-3, 1)))
 	}
 	for _, l := range e.lines {
 		c := t.text
@@ -470,4 +473,78 @@ func (m *model) tablineView() string {
 	})
 	line := lipgloss.NewStyle().MaxWidth(m.width).Render(strings.Join(parts, ""))
 	return line + "\n" + fg(t.border).Render(strings.Repeat("─", m.width))
+}
+
+func textView(t theme, s string, width int) string {
+	js, ok := prettyJSON(s)
+	if !ok {
+		return fg(t.text).Width(width).Render(s)
+	}
+	return lipgloss.NewStyle().Width(width).Render(highlightJSON(t, js))
+}
+
+func prettyJSON(s string) (string, bool) {
+	if trimmed := strings.TrimSpace(s); trimmed == "" || !strings.ContainsRune("{[", rune(trimmed[0])) {
+		return "", false
+	}
+	dec := json.NewDecoder(strings.NewReader(s))
+	var out []string
+	for {
+		var v json.RawMessage
+		if err := dec.Decode(&v); err == io.EOF {
+			break
+		} else if err != nil {
+			return "", false
+		}
+		var b bytes.Buffer
+		if err := json.Indent(&b, v, "", "  "); err != nil {
+			return "", false
+		}
+		out = append(out, b.String())
+	}
+	return strings.Join(out, "\n"), true
+}
+
+func highlightJSON(t theme, s string) string {
+	var b strings.Builder
+	span := func(i int, ok func(byte) bool) int {
+		for i < len(s) && ok(s[i]) {
+			i++
+		}
+		return i
+	}
+	for i := 0; i < len(s); {
+		c := s[i]
+		j := i + 1
+		col := t.text
+		switch {
+		case c == '"':
+			for j < len(s) && s[j] != '"' {
+				if s[j] == '\\' {
+					j++
+				}
+				j++
+			}
+			j = min(j+1, len(s))
+			col = t.success
+			if strings.HasPrefix(strings.TrimLeft(s[j:], " "), ":") {
+				col = t.primary
+			}
+		case c == '-' || c >= '0' && c <= '9':
+			j = span(i, func(x byte) bool { return strings.IndexByte("+-.eE0123456789", x) >= 0 })
+			col = t.accent
+		case c >= 'a' && c <= 'z':
+			j = span(i, func(x byte) bool { return x >= 'a' && x <= 'z' })
+			col = t.err
+		case strings.IndexByte("{}[],:", c) >= 0:
+			col = t.muted
+		default:
+			b.WriteByte(c)
+			i++
+			continue
+		}
+		b.WriteString(fg(col).Render(s[i:j]))
+		i = j
+	}
+	return b.String()
 }
