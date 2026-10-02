@@ -1,5 +1,5 @@
 import { Redis } from "ioredis";
-import { live, quote, serve, text, words, type Output, type Resource, type Session } from "../sdk/index.ts";
+import { live, quote, serve, text, words, type Action, type Output, type Resource, type Session } from "../sdk/index.ts";
 
 const maxKeys = 1000;
 export function format(v: unknown, indent = ""): string {
@@ -21,11 +21,45 @@ export function format(v: unknown, indent = ""): string {
 
 const reads: Record<string, (k: string) => string> = {
   string: (k) => `GET ${k}`,
-  hash: (k) => `HGETALL ${k}`,
+  hash: (k) => `HSCAN ${k} 0 COUNT 100`,
   list: (k) => `LRANGE ${k} 0 99`,
   set: (k) => `SSCAN ${k} 0 COUNT 100`,
   zset: (k) => `ZRANGE ${k} 0 99 WITHSCORES`,
   stream: (k) => `XREVRANGE ${k} + - COUNT 50`,
+};
+
+const finds: Record<string, (k: string) => Action[]> = {
+  string: (k) => [
+    { name: "Set value", query: `SET ${k} …`, danger: true, params: [{ name: "value" }], build: ([v]) => `SET ${k} ${quote(v)}` },
+  ],
+  hash: (k) => [{ name: "Get field", query: `HGET ${k} …`, params: [{ name: "field" }], build: ([f]) => `HGET ${k} ${quote(f)}` }],
+  list: (k) => [
+    {
+      name: "Range",
+      query: `LRANGE ${k} … …`,
+      params: [{ name: "start", value: "0" }, { name: "stop", value: "99" }],
+      build: ([a, b]) => `LRANGE ${k} ${quote(a)} ${quote(b)}`,
+    },
+  ],
+  set: (k) => [
+    { name: "Is member", query: `SISMEMBER ${k} …`, params: [{ name: "member" }], build: ([v]) => `SISMEMBER ${k} ${quote(v)}` },
+  ],
+  zset: (k) => [
+    {
+      name: "Range by score",
+      query: `ZRANGEBYSCORE ${k} … … WITHSCORES LIMIT 0 100`,
+      params: [{ name: "min", value: "-inf" }, { name: "max", value: "+inf" }],
+      build: ([a, b]) => `ZRANGEBYSCORE ${k} ${quote(a)} ${quote(b)} WITHSCORES LIMIT 0 100`,
+    },
+  ],
+  stream: (k) => [
+    {
+      name: "Range",
+      query: `XRANGE ${k} … … COUNT 50`,
+      params: [{ name: "start", value: "-" }, { name: "end", value: "+" }],
+      build: ([a, b]) => `XRANGE ${k} ${quote(a)} ${quote(b)} COUNT 50`,
+    },
+  ],
 };
 
 function subscribe(client: Redis, cmd: string, channels: string[], signal: AbortSignal): Promise<Output> {
@@ -85,16 +119,23 @@ async function connect(uri: string): Promise<Session> {
       do {
         const [next, batch] = await client.scan(cursor, "COUNT", 500);
         cursor = next;
-        keys.push(...batch);
+        for (const k of batch.slice(0, maxKeys - keys.length)) keys.push(k);
       } while (cursor !== "0" && keys.length < maxKeys);
-      const names = keys.slice(0, maxKeys).sort();
+      const names = keys.sort();
       const types = (await client.pipeline(names.map((k) => ["type", k])).exec()) ?? [];
       return names.map((name, i) => ({ kind: String(types[i]?.[1] ?? "unknown"), name }));
     },
     actions(r: Resource) {
       const k = quote(r.name);
-      const acts = [
+      const acts: Action[] = [
+        ...(finds[r.kind]?.(k) ?? []),
         { name: "Time to live", query: `TTL ${k}` },
+        {
+          name: "Set time to live",
+          query: `EXPIRE ${k} …`,
+          params: [{ name: "seconds", value: "3600" }],
+          build: ([s]) => `EXPIRE ${k} ${quote(s)}`,
+        },
         { name: "Memory usage", query: `MEMORY USAGE ${k}` },
         { name: "Delete key", query: `DEL ${k}`, danger: true },
       ];

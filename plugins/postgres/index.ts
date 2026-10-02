@@ -5,6 +5,10 @@ export function ident(name: string): string {
   return '"' + name.replaceAll('"', '""') + '"';
 }
 
+export function literal(value: string): string {
+  return "'" + value.replaceAll("'", "''") + "'";
+}
+
 export function split(name: string): [string, string] {
   const dot = name.indexOf(".");
   return dot < 0 ? ["public", name] : [name.slice(0, dot), name.slice(dot + 1)];
@@ -80,13 +84,26 @@ async function connect(uri: string): Promise<Session> {
         name: r.schema === "public" ? r.name : `${r.schema}.${r.name}`,
       }));
     },
-    actions(r: Resource) {
+    async actions(r: Resource) {
       const t = qualified(r.name);
       const acts: Action[] = [
         { name: "Preview rows", query: `SELECT * FROM ${t} LIMIT 50;` },
         { name: "Count rows", query: `SELECT count(*) FROM ${t};` },
         { name: "Describe", query: `\\d ${r.name}` },
       ];
+      const cols = await client.query<{ name: string }>(
+        "SELECT column_name AS name FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 ORDER BY ordinal_position",
+        split(r.name),
+      );
+      for (const c of cols.rows) {
+        const where = `SELECT * FROM ${t} WHERE ${ident(c.name)}`;
+        acts.push({
+          name: `Filter by ${c.name}`,
+          query: `${where} = …`,
+          params: [{ name: c.name }],
+          build: ([v]) => `${where} = ${literal(v)} LIMIT 50;`,
+        });
+      }
       if (r.kind === "table") acts.push({ name: "Truncate", query: `TRUNCATE ${t};`, danger: true });
       return acts;
     },

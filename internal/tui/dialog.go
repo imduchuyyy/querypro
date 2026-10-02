@@ -1,12 +1,18 @@
 package tui
 
 import (
+	"cmp"
+	"fmt"
 	"image/color"
+	"math"
+	"slices"
 	"strings"
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"querypro/internal/plugin"
 )
 
 type dialog interface {
@@ -56,6 +62,7 @@ func newInput(t theme, placeholder string) textinput.Model {
 }
 
 type item struct {
+	group  string
 	label  string
 	hint   string
 	danger bool
@@ -68,6 +75,8 @@ type listDialog struct {
 	keep   bool
 	search textinput.Model
 	cursor int
+	offset int
+	height int
 }
 
 func newList(t theme, title string, keep bool, items func() []item) *listDialog {
@@ -78,14 +87,53 @@ func newList(t theme, title string, keep bool, items func() []item) *listDialog 
 }
 
 func (d *listDialog) visible() []item {
-	q := strings.ToLower(d.search.Value())
-	var out []item
+	q := strings.TrimSpace(d.search.Value())
+	if q == "" {
+		return d.items()
+	}
+	type hit struct {
+		it    item
+		score int
+	}
+	var hits []hit
 	for _, it := range d.items() {
-		if strings.Contains(strings.ToLower(it.label), q) {
-			out = append(out, it)
+		if s, ok := fuzzy(q, it.label); ok {
+			hits = append(hits, hit{it, s})
+		} else if s, ok := fuzzy(q, it.group+" "+it.label); ok {
+			hits = append(hits, hit{it, s - 10})
 		}
 	}
+	slices.SortStableFunc(hits, func(a, b hit) int {
+		return cmp.Or(b.score-a.score, len(a.it.label)-len(b.it.label))
+	})
+	out := make([]item, len(hits))
+	for i, h := range hits {
+		out[i] = h.it
+	}
 	return out
+}
+
+func fuzzy(query, s string) (int, bool) {
+	q, r := []rune(strings.ToLower(query)), []rune(strings.ToLower(s))
+	score, j, prev := 0, 0, -1
+	for i := 0; i < len(r) && j < len(q); i++ {
+		if r[i] != q[j] {
+			continue
+		}
+		switch {
+		case i == prev+1:
+			score += 3
+		case i == 0 || strings.ContainsRune(" _-./:", r[i-1]):
+			score += 2
+		default:
+			score -= min(i-prev, 5)
+		}
+		prev, j = i, j+1
+	}
+	if strings.Contains(string(r), string(q)) {
+		score += 10
+	}
+	return score, j == len(q)
 }
 
 func (d *listDialog) update(msg tea.Msg) (dialog, tea.Cmd) {
@@ -103,6 +151,10 @@ func (d *listDialog) update(msg tea.Msg) (dialog, tea.Cmd) {
 		d.cursor = max(d.cursor-1, 0)
 	case "down", "ctrl+n":
 		d.cursor = min(d.cursor+1, max(len(items)-1, 0))
+	case "pgup":
+		d.cursor = max(d.cursor-10, 0)
+	case "pgdown":
+		d.cursor = min(d.cursor+10, max(len(items)-1, 0))
 	case "enter":
 		if d.cursor >= len(items) || items[d.cursor].run == nil {
 			return d, nil
@@ -129,7 +181,21 @@ func (d *listDialog) view(t theme, width int) string {
 	if len(items) == 0 {
 		rows = append(rows, fg(t.muted).Render("no results"))
 	}
-	for i, it := range items {
+	d.cursor = min(d.cursor, max(len(items)-1, 0))
+	d.offset = min(d.offset, d.cursor)
+	for d.offset < d.cursor && d.lines(items, d.offset, d.cursor) > d.budget() {
+		d.offset++
+	}
+	used, last := 0, d.offset-1
+	for i := d.offset; i < len(items); i++ {
+		it := items[i]
+		if used += d.lines(items, i, i); used > d.budget() {
+			break
+		}
+		last = i
+		if d.header(items, i) {
+			rows = append(rows, fg(t.muted).Bold(true).Render(strings.ToUpper(it.group)))
+		}
 		color := t.text
 		if it.danger {
 			color = t.err
@@ -146,8 +212,31 @@ func (d *listDialog) view(t theme, width int) string {
 			Render(fg(t.muted).Render(it.hint))
 		rows = append(rows, mark+spread(label, hint, inner-2))
 	}
-	return frame(t, width, d.title, strings.Join(rows, "\n"),
-		"↑↓ select · enter run · esc close")
+	hint := "↑↓ select · enter run · esc close"
+	if d.offset > 0 || last < len(items)-1 {
+		hint = fmt.Sprintf("%d/%d · ", d.cursor+1, len(items)) + hint
+	}
+	return frame(t, width, d.title, strings.Join(rows, "\n"), hint)
+}
+
+func (d *listDialog) budget() int {
+	return cmp.Or(d.height, math.MaxInt)
+}
+
+func (d *listDialog) header(items []item, i int) bool {
+	g := items[i].group
+	return d.search.Value() == "" && g != "" && (i == d.offset || items[i-1].group != g)
+}
+
+func (d *listDialog) lines(items []item, from, to int) int {
+	n := 0
+	for i := from; i <= to; i++ {
+		n++
+		if d.header(items, i) {
+			n++
+		}
+	}
+	return n
 }
 
 type detailDialog struct {
@@ -205,7 +294,73 @@ func (d *detailDialog) view(t theme, width int) string {
 	return frame(t, width, d.title, strings.Join(lines, "\n"), hint)
 }
 
+type formDialog struct {
+	title  string
+	labels []string
+	inputs []textinput.Model
+	focus  int
+	submit func([]string) tea.Cmd
+}
+
+func newForm(t theme, title string, params []plugin.Param, submit func([]string) tea.Cmd) *formDialog {
+	d := &formDialog{title: title, submit: submit}
+	for _, p := range params {
+		in := newInput(t, p.Name)
+		in.SetValue(p.Value)
+		d.labels = append(d.labels, p.Name)
+		d.inputs = append(d.inputs, in)
+	}
+	d.inputs[0].Focus()
+	return d
+}
+
+func (d *formDialog) setFocus(i int) tea.Cmd {
+	d.inputs[d.focus].Blur()
+	d.focus = (i + len(d.inputs)) % len(d.inputs)
+	return d.inputs[d.focus].Focus()
+}
+
+func (d *formDialog) update(msg tea.Msg) (dialog, tea.Cmd) {
+	if k, ok := msg.(tea.KeyPressMsg); ok {
+		switch k.String() {
+		case "esc":
+			return nil, nil
+		case "tab", "down":
+			return d, d.setFocus(d.focus + 1)
+		case "shift+tab", "up":
+			return d, d.setFocus(d.focus - 1)
+		case "enter":
+			if d.focus < len(d.inputs)-1 {
+				return d, d.setFocus(d.focus + 1)
+			}
+			values := make([]string, len(d.inputs))
+			for i, in := range d.inputs {
+				values[i] = in.Value()
+			}
+			return nil, d.submit(values)
+		}
+	}
+	var cmd tea.Cmd
+	d.inputs[d.focus], cmd = d.inputs[d.focus].Update(msg)
+	return d, cmd
+}
+
+func (d *formDialog) view(t theme, width int) string {
+	var rows []string
+	for i, in := range d.inputs {
+		in.SetWidth(max(width-8, 1))
+		label := fg(t.muted).Render(d.labels[i])
+		if i == d.focus {
+			label = fg(t.primary).Bold(true).Render(d.labels[i])
+		}
+		rows = append(rows, label, in.View(), "")
+	}
+	return frame(t, width, d.title, strings.Join(rows[:len(rows)-1], "\n"),
+		"tab next field · enter run · esc close")
+}
+
 type connectDialog struct {
+	title  string
 	kind   int
 	focus  int
 	err    string
@@ -215,10 +370,17 @@ type connectDialog struct {
 	onSave func(profile) tea.Cmd
 }
 
-func newConnect(t theme, check func(string) error, onSave func(profile) tea.Cmd) *connectDialog {
-	d := &connectDialog{check: check, onSave: onSave}
+func newConnect(t theme, title string, p profile, check func(string) error, onSave func(profile) tea.Cmd) *connectDialog {
+	d := &connectDialog{title: title, check: check, onSave: onSave}
+	for i, k := range kinds {
+		if k.Name == p.Kind {
+			d.kind = i
+		}
+	}
 	d.name = newInput(t, "e.g. local-pg, prod-mongo")
-	d.uri = newInput(t, kinds[0].URI)
+	d.uri = newInput(t, kinds[d.kind].URI)
+	d.name.SetValue(p.Name)
+	d.uri.SetValue(p.URI)
 	d.name.Focus()
 	return d
 }
@@ -310,7 +472,7 @@ func (d *connectDialog) view(t theme, width int) string {
 		"",
 		errLine,
 	}, "\n")
-	return frame(t, width, "New connection", body, "tab next field · enter save · esc close")
+	return frame(t, width, d.title, body, "tab next field · enter save · esc close")
 }
 
 func or(s, fallback string) string {

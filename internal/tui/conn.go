@@ -52,7 +52,14 @@ type (
 		res  []plugin.Resource
 		err  error
 	}
-	retryMsg   struct{ id, attempt int }
+	retryMsg struct{ id, attempt int }
+	builtMsg struct {
+		id     int
+		sess   plugin.Session
+		query  string
+		danger bool
+		err    error
+	}
 	actionsMsg struct {
 		id   int
 		sess plugin.Session
@@ -198,10 +205,37 @@ func (m *model) gotActions(msg actionsMsg) tea.Cmd {
 	case len(msg.acts) == 0:
 		return m.fail(errors.New("no actions for " + msg.r.Name))
 	case msg.run:
-		return m.run(msg.acts[0].Query)
+		return m.pick(c, msg.r, msg.acts[0])
 	}
 	m.dlg = m.actionList(msg.r, msg.acts)
 	return nil
+}
+
+func (m *model) build(c *connection, r plugin.Resource, a plugin.Action, values []string) tea.Cmd {
+	if c == nil || c.sess == nil {
+		return m.notConnected(c)
+	}
+	s, id := c.sess, c.id
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), rpcTimeout)
+		defer cancel()
+		q, err := s.Build(ctx, r, a.Name, values)
+		return builtMsg{id: id, sess: s, query: q, danger: a.Danger, err: err}
+	}
+}
+
+func (m *model) built(msg builtMsg) tea.Cmd {
+	c := m.byID(msg.id)
+	if cmd := m.lost(c, msg.sess, msg.err); cmd != nil {
+		return cmd
+	}
+	switch {
+	case c == nil || c != m.conn():
+		return nil
+	case msg.err != nil:
+		return m.fail(msg.err)
+	}
+	return m.runAction(msg.query, msg.danger)
 }
 
 func (m *model) openResource(c *connection, r plugin.Resource) tea.Cmd {
@@ -285,7 +319,7 @@ func (m *model) switchTab(i int) {
 	}
 }
 
-func (m *model) checkName(name string) error {
+func (m *model) checkName(name, old string) error {
 	switch {
 	case name == "":
 		return errors.New("give the connection a name")
@@ -293,7 +327,7 @@ func (m *model) checkName(name string) error {
 		return errors.New("use a name without spaces or \"!\" in it")
 	}
 	for _, p := range m.profiles {
-		if strings.EqualFold(p.Name, name) {
+		if strings.EqualFold(p.Name, name) && p.Name != old {
 			return fmt.Errorf("a connection named %q already exists", p.Name)
 		}
 	}
@@ -303,6 +337,24 @@ func (m *model) checkName(name string) error {
 func (m *model) saveProfile(p profile) tea.Cmd {
 	m.profiles = append(m.profiles, p)
 	return tea.Batch(m.saveProfiles(), m.openProfile(p))
+}
+
+func (m *model) updateProfile(old string, p profile) tea.Cmd {
+	for i := range m.profiles {
+		if m.profiles[i].Name == old {
+			m.profiles[i] = p
+		}
+	}
+	cmds := []tea.Cmd{m.saveProfiles()}
+	for _, c := range m.conns {
+		if c.name == old {
+			stop(c)
+			c.name, c.kind, c.uri = p.Name, p.Kind, p.URI
+			c.resources, c.current, c.resOffset = nil, nil, 0
+			cmds = append(cmds, m.connect(c))
+		}
+	}
+	return tea.Batch(cmds...)
 }
 
 func (m *model) deleteProfile(name string) tea.Cmd {

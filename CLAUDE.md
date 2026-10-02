@@ -61,6 +61,10 @@ typechecks.
 
 - `Session.actions(resource)` returns named queries; the first is what
   opening a resource runs. Mark destructive ones `danger: true`.
+  Actions with `params` open a form; the TUI sends the values to the `Build`
+  RPC, which finds the action by name and runs its `build(values)` to make
+  the final query (`query` is then only the hint). Quote values in `build`.
+  `actions` may be async.
 - `live(signal, summary, start)` must finish subscribing inside `start` so
   errors surface as query errors, and return a stop function.
 - Command languages use `dispatch` with keys like `"tail <topic> [from]"`:
@@ -69,7 +73,8 @@ typechecks.
   session in `guard(session, () => lost)`: once the connection is lost,
   calls fail with gRPC `UNAVAILABLE`, which the core maps to
   `plugin.ErrDisconnected` and the TUI answers with an automatic reconnect.
-- The SDK caps tables at 1000 rows, cells at 500 chars, text at 1 MB.
+- The SDK caps tables and resource lists at 1000 rows, cells at 500 chars,
+  text at 1 MB.
 - Integration tests for every plugin live in `internal/plugin/host_test.go`
   (`TestBackends`); new plugins and actions belong there.
 
@@ -110,7 +115,8 @@ dialogs), `persist.go` (store files), `view.go`, `dialog.go`, `mouse.go`,
   open tabs (`m.conns`): closing a tab keeps the profile. `openProfile`
   switches to an existing tab instead of duplicating it, because `!name`
   resolves tabs by name. `checkName` requires a unique name with no spaces
-  or `!`.
+  or `!` (ignoring the profile being edited). `updateProfile` also renames
+  and reconnects its open tab.
 - Dialogs implement the `dialog` interface. Opening one is a message:
   `open(d)` returns a `tea.Cmd` whose message is the dialog itself.
   `listDialog` backs the palette, settings, switcher and help; items are

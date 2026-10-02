@@ -53,6 +53,13 @@ func (s *fakeSession) Actions(_ context.Context, r plugin.Resource) ([]plugin.Ac
 	}, nil
 }
 
+func (s *fakeSession) Build(_ context.Context, r plugin.Resource, action string, values []string) (string, error) {
+	if values[0] == "" {
+		return "", errors.New("id is required")
+	}
+	return "SELECT * FROM " + r.Name + " WHERE id = " + values[0] + ";", nil
+}
+
 func (s *fakeSession) Query(ctx context.Context, q string) (plugin.Result, error) {
 	switch {
 	case strings.HasPrefix(q, "consume"):
@@ -418,7 +425,7 @@ func TestNewTabFlow(t *testing.T) {
 	for name, ok := range map[string]bool{
 		"": false, "has space": false, "!x": false, "DOCS": false, "staging-pg": false, "fresh": true,
 	} {
-		if err := m.checkName(name); (err == nil) != ok {
+		if err := m.checkName(name, ""); (err == nil) != ok {
 			t.Errorf("checkName(%q) = %v", name, err)
 		}
 	}
@@ -485,5 +492,58 @@ func TestPersistence(t *testing.T) {
 	}
 	if again.theme != 1 || again.sidebar || !again.mouse {
 		t.Fatalf("settings theme=%d sidebar=%v mouse=%v", again.theme, again.sidebar, again.mouse)
+	}
+}
+
+func TestParamAction(t *testing.T) {
+	m := seed(t)
+	c := m.conn()
+	filter := plugin.Action{Name: "Filter by id", Params: []plugin.Param{{Name: "id"}}}
+	m.dlg = m.actionList(plugin.Resource{Name: "users"}, []plugin.Action{filter})
+	_, cmd := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	do(m, cmd)
+	if _, ok := m.dlg.(*formDialog); !ok {
+		t.Fatalf("an action with params should ask for them, got %#v", m.dlg)
+	}
+	n := len(c.entries)
+	_, cmd = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	do(m, cmd)
+	if len(c.entries) != n || !strings.Contains(m.notice, "id is required") {
+		t.Fatalf("a failed build should not run: entries=%d notice=%q", len(c.entries), m.notice)
+	}
+	do(m, m.pick(c, plugin.Resource{Name: "users"}, filter))
+	m.Update(tea.KeyPressMsg{Code: '4', Text: "4"})
+	m.Update(tea.KeyPressMsg{Code: '2', Text: "2"})
+	_, cmd = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	do(m, cmd)
+	if e := c.entries[len(c.entries)-1]; e.query != "SELECT * FROM users WHERE id = 42;" || e.err != nil {
+		t.Fatalf("built query %q err=%v", e.query, e.err)
+	}
+}
+
+func TestEditProfile(t *testing.T) {
+	m := seed(t)
+	old := m.conns[0].sess
+	d := m.editForm(m.profiles[0]).(*connectDialog)
+	if d.name.Value() != "local-pg" || kinds[d.kind].Name != "postgres" || !strings.Contains(d.uri.Value(), "secret") {
+		t.Fatalf("form not prefilled: %q %q", d.name.Value(), d.uri.Value())
+	}
+	d.name.SetValue("docs")
+	if next, _ := d.update(tea.KeyPressMsg{Code: tea.KeyEnter}); next == nil {
+		t.Fatal("renaming onto another connection should be rejected")
+	}
+	d.name.SetValue("main-pg")
+	d.uri.SetValue("postgres://app@localhost/other")
+	next, cmd := d.update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if next != nil {
+		t.Fatal("keeping a unique name should save")
+	}
+	do(m, cmd)
+	p, c := m.profiles[0], m.conns[0]
+	if p.Name != "main-pg" || p.URI != "postgres://app@localhost/other" || len(m.profiles) != 8 {
+		t.Fatalf("profile not updated: %+v", p)
+	}
+	if c.name != "main-pg" || c.uri != p.URI || c.sess == nil || c.sess == old {
+		t.Fatalf("open tab should follow the edit and reconnect: %s %s", c.name, c.uri)
 	}
 }

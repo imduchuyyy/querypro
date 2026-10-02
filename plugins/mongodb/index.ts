@@ -11,7 +11,7 @@ import {
   type Collection,
   type Db,
 } from "mongodb";
-import { live, plural, serve, table, text, type Output, type Resource, type Session } from "../sdk/index.ts";
+import { live, plural, serve, table, text, type Action, type Output, type Resource, type Session } from "../sdk/index.ts";
 
 const { EJSON } = BSON;
 
@@ -30,6 +30,16 @@ function bind<T extends object>(target: T, extra: Record<string, unknown>, missi
       return typeof v === "function" ? v.bind(t) : v;
     },
   });
+}
+
+export function value(v: string): string {
+  if (/^[0-9a-f]{24}$/i.test(v)) return `ObjectId(${JSON.stringify(v)})`;
+  try {
+    JSON.parse(v);
+    return v;
+  } catch {
+    return JSON.stringify(v);
+  }
 }
 
 export function shell(db: Db): Db {
@@ -106,10 +116,16 @@ async function connect(uri: string): Promise<Session> {
         .sort((a, b) => a.name.localeCompare(b.name))
         .slice(0, 1000);
     },
-    actions(r: Resource) {
+    actions(r: Resource): Action[] {
       const c = ref(r.name);
       return [
         { name: "Find documents", query: `${c}.find({}).limit(20)` },
+        {
+          name: "Find by field",
+          query: `${c}.find({ field: value }).limit(20)`,
+          params: [{ name: "field", value: "_id" }, { name: "value" }],
+          build: ([f, v]) => `${c}.find({ ${JSON.stringify(f)}: ${value(v)} }).limit(20)`,
+        },
         { name: "Count documents", query: `${c}.countDocuments()` },
         { name: "List indexes", query: `${c}.getIndexes()` },
         { name: "Watch changes (live)", query: `${c}.watch()` },

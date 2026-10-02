@@ -11,6 +11,12 @@ type Action struct {
 	Name   string
 	Query  string
 	Danger bool
+	Params []Param
+}
+
+type Param struct {
+	Name  string
+	Value string
 }
 
 type Result struct {
@@ -26,6 +32,7 @@ type Session interface {
 	Server() string
 	Resources(ctx context.Context) ([]Resource, error)
 	Actions(ctx context.Context, r Resource) ([]Action, error)
+	Build(ctx context.Context, r Resource, action string, values []string) (string, error)
 	Query(ctx context.Context, q string) (Result, error)
 	Close() error
 }

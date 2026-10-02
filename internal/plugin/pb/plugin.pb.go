@@ -342,6 +342,7 @@ type Action struct {
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Query         string                 `protobuf:"bytes,2,opt,name=query,proto3" json:"query,omitempty"`
 	Danger        bool                   `protobuf:"varint,3,opt,name=danger,proto3" json:"danger,omitempty"`
+	Params        []*Param               `protobuf:"bytes,4,rep,name=params,proto3" json:"params,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -397,6 +398,65 @@ func (x *Action) GetDanger() bool {
 	return false
 }
 
+func (x *Action) GetParams() []*Param {
+	if x != nil {
+		return x.Params
+	}
+	return nil
+}
+
+type Param struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Value         string                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Param) Reset() {
+	*x = Param{}
+	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Param) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Param) ProtoMessage() {}
+
+func (x *Param) ProtoReflect() protoreflect.Message {
+	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Param.ProtoReflect.Descriptor instead.
+func (*Param) Descriptor() ([]byte, []int) {
+	return file_querypro_plugin_v1_plugin_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *Param) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Param) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
 type ActionsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Session       string                 `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
@@ -407,7 +467,7 @@ type ActionsRequest struct {
 
 func (x *ActionsRequest) Reset() {
 	*x = ActionsRequest{}
-	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[8]
+	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -419,7 +479,7 @@ func (x *ActionsRequest) String() string {
 func (*ActionsRequest) ProtoMessage() {}
 
 func (x *ActionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[8]
+	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -432,7 +492,7 @@ func (x *ActionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActionsRequest.ProtoReflect.Descriptor instead.
 func (*ActionsRequest) Descriptor() ([]byte, []int) {
-	return file_querypro_plugin_v1_plugin_proto_rawDescGZIP(), []int{8}
+	return file_querypro_plugin_v1_plugin_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ActionsRequest) GetSession() string {
@@ -458,7 +518,7 @@ type ActionsResponse struct {
 
 func (x *ActionsResponse) Reset() {
 	*x = ActionsResponse{}
-	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[9]
+	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -470,7 +530,7 @@ func (x *ActionsResponse) String() string {
 func (*ActionsResponse) ProtoMessage() {}
 
 func (x *ActionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[9]
+	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -483,7 +543,7 @@ func (x *ActionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActionsResponse.ProtoReflect.Descriptor instead.
 func (*ActionsResponse) Descriptor() ([]byte, []int) {
-	return file_querypro_plugin_v1_plugin_proto_rawDescGZIP(), []int{9}
+	return file_querypro_plugin_v1_plugin_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ActionsResponse) GetActions() []*Action {
@@ -491,6 +551,118 @@ func (x *ActionsResponse) GetActions() []*Action {
 		return x.Actions
 	}
 	return nil
+}
+
+type BuildRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Session       string                 `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
+	Resource      *Resource              `protobuf:"bytes,2,opt,name=resource,proto3" json:"resource,omitempty"`
+	Action        string                 `protobuf:"bytes,3,opt,name=action,proto3" json:"action,omitempty"`
+	Values        []string               `protobuf:"bytes,4,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildRequest) Reset() {
+	*x = BuildRequest{}
+	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildRequest) ProtoMessage() {}
+
+func (x *BuildRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildRequest.ProtoReflect.Descriptor instead.
+func (*BuildRequest) Descriptor() ([]byte, []int) {
+	return file_querypro_plugin_v1_plugin_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *BuildRequest) GetSession() string {
+	if x != nil {
+		return x.Session
+	}
+	return ""
+}
+
+func (x *BuildRequest) GetResource() *Resource {
+	if x != nil {
+		return x.Resource
+	}
+	return nil
+}
+
+func (x *BuildRequest) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+func (x *BuildRequest) GetValues() []string {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+type BuildResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Query         string                 `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildResponse) Reset() {
+	*x = BuildResponse{}
+	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildResponse) ProtoMessage() {}
+
+func (x *BuildResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildResponse.ProtoReflect.Descriptor instead.
+func (*BuildResponse) Descriptor() ([]byte, []int) {
+	return file_querypro_plugin_v1_plugin_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *BuildResponse) GetQuery() string {
+	if x != nil {
+		return x.Query
+	}
+	return ""
 }
 
 type QueryRequest struct {
@@ -503,7 +675,7 @@ type QueryRequest struct {
 
 func (x *QueryRequest) Reset() {
 	*x = QueryRequest{}
-	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[10]
+	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -515,7 +687,7 @@ func (x *QueryRequest) String() string {
 func (*QueryRequest) ProtoMessage() {}
 
 func (x *QueryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[10]
+	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -528,7 +700,7 @@ func (x *QueryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryRequest.ProtoReflect.Descriptor instead.
 func (*QueryRequest) Descriptor() ([]byte, []int) {
-	return file_querypro_plugin_v1_plugin_proto_rawDescGZIP(), []int{10}
+	return file_querypro_plugin_v1_plugin_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *QueryRequest) GetSession() string {
@@ -554,7 +726,7 @@ type Row struct {
 
 func (x *Row) Reset() {
 	*x = Row{}
-	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[11]
+	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -566,7 +738,7 @@ func (x *Row) String() string {
 func (*Row) ProtoMessage() {}
 
 func (x *Row) ProtoReflect() protoreflect.Message {
-	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[11]
+	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -579,7 +751,7 @@ func (x *Row) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Row.ProtoReflect.Descriptor instead.
 func (*Row) Descriptor() ([]byte, []int) {
-	return file_querypro_plugin_v1_plugin_proto_rawDescGZIP(), []int{11}
+	return file_querypro_plugin_v1_plugin_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *Row) GetCells() []string {
@@ -599,7 +771,7 @@ type Table struct {
 
 func (x *Table) Reset() {
 	*x = Table{}
-	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[12]
+	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -611,7 +783,7 @@ func (x *Table) String() string {
 func (*Table) ProtoMessage() {}
 
 func (x *Table) ProtoReflect() protoreflect.Message {
-	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[12]
+	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -624,7 +796,7 @@ func (x *Table) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Table.ProtoReflect.Descriptor instead.
 func (*Table) Descriptor() ([]byte, []int) {
-	return file_querypro_plugin_v1_plugin_proto_rawDescGZIP(), []int{12}
+	return file_querypro_plugin_v1_plugin_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *Table) GetColumns() []string {
@@ -649,7 +821,7 @@ type Live struct {
 
 func (x *Live) Reset() {
 	*x = Live{}
-	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[13]
+	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -661,7 +833,7 @@ func (x *Live) String() string {
 func (*Live) ProtoMessage() {}
 
 func (x *Live) ProtoReflect() protoreflect.Message {
-	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[13]
+	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -674,7 +846,7 @@ func (x *Live) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Live.ProtoReflect.Descriptor instead.
 func (*Live) Descriptor() ([]byte, []int) {
-	return file_querypro_plugin_v1_plugin_proto_rawDescGZIP(), []int{13}
+	return file_querypro_plugin_v1_plugin_proto_rawDescGZIP(), []int{16}
 }
 
 type QueryResponse struct {
@@ -693,7 +865,7 @@ type QueryResponse struct {
 
 func (x *QueryResponse) Reset() {
 	*x = QueryResponse{}
-	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[14]
+	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -705,7 +877,7 @@ func (x *QueryResponse) String() string {
 func (*QueryResponse) ProtoMessage() {}
 
 func (x *QueryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[14]
+	mi := &file_querypro_plugin_v1_plugin_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -718,7 +890,7 @@ func (x *QueryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryResponse.ProtoReflect.Descriptor instead.
 func (*QueryResponse) Descriptor() ([]byte, []int) {
-	return file_querypro_plugin_v1_plugin_proto_rawDescGZIP(), []int{14}
+	return file_querypro_plugin_v1_plugin_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *QueryResponse) GetEvent() isQueryResponse_Event {
@@ -818,16 +990,27 @@ const file_querypro_plugin_v1_plugin_proto_rawDesc = "" +
 	"\x10ResourcesRequest\x12\x18\n" +
 	"\asession\x18\x01 \x01(\tR\asession\"O\n" +
 	"\x11ResourcesResponse\x12:\n" +
-	"\tresources\x18\x01 \x03(\v2\x1c.querypro.plugin.v1.ResourceR\tresources\"J\n" +
+	"\tresources\x18\x01 \x03(\v2\x1c.querypro.plugin.v1.ResourceR\tresources\"}\n" +
 	"\x06Action\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05query\x18\x02 \x01(\tR\x05query\x12\x16\n" +
-	"\x06danger\x18\x03 \x01(\bR\x06danger\"d\n" +
+	"\x06danger\x18\x03 \x01(\bR\x06danger\x121\n" +
+	"\x06params\x18\x04 \x03(\v2\x19.querypro.plugin.v1.ParamR\x06params\"1\n" +
+	"\x05Param\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\"d\n" +
 	"\x0eActionsRequest\x12\x18\n" +
 	"\asession\x18\x01 \x01(\tR\asession\x128\n" +
 	"\bresource\x18\x02 \x01(\v2\x1c.querypro.plugin.v1.ResourceR\bresource\"G\n" +
 	"\x0fActionsResponse\x124\n" +
-	"\aactions\x18\x01 \x03(\v2\x1a.querypro.plugin.v1.ActionR\aactions\">\n" +
+	"\aactions\x18\x01 \x03(\v2\x1a.querypro.plugin.v1.ActionR\aactions\"\x92\x01\n" +
+	"\fBuildRequest\x12\x18\n" +
+	"\asession\x18\x01 \x01(\tR\asession\x128\n" +
+	"\bresource\x18\x02 \x01(\v2\x1c.querypro.plugin.v1.ResourceR\bresource\x12\x16\n" +
+	"\x06action\x18\x03 \x01(\tR\x06action\x12\x16\n" +
+	"\x06values\x18\x04 \x03(\tR\x06values\"%\n" +
+	"\rBuildResponse\x12\x14\n" +
+	"\x05query\x18\x01 \x01(\tR\x05query\">\n" +
 	"\fQueryRequest\x12\x18\n" +
 	"\asession\x18\x01 \x01(\tR\asession\x12\x14\n" +
 	"\x05query\x18\x02 \x01(\tR\x05query\"\x1b\n" +
@@ -843,13 +1026,14 @@ const file_querypro_plugin_v1_plugin_proto_rawDesc = "" +
 	"\x04live\x18\x03 \x01(\v2\x18.querypro.plugin.v1.LiveH\x00R\x04live\x12\x14\n" +
 	"\x04line\x18\x04 \x01(\tH\x00R\x04line\x12\x18\n" +
 	"\asummary\x18\x05 \x01(\tR\asummaryB\a\n" +
-	"\x05event2\xbe\x03\n" +
+	"\x05event2\x8c\x04\n" +
 	"\rPluginService\x12R\n" +
 	"\aConnect\x12\".querypro.plugin.v1.ConnectRequest\x1a#.querypro.plugin.v1.ConnectResponse\x12[\n" +
 	"\n" +
 	"Disconnect\x12%.querypro.plugin.v1.DisconnectRequest\x1a&.querypro.plugin.v1.DisconnectResponse\x12X\n" +
 	"\tResources\x12$.querypro.plugin.v1.ResourcesRequest\x1a%.querypro.plugin.v1.ResourcesResponse\x12R\n" +
-	"\aActions\x12\".querypro.plugin.v1.ActionsRequest\x1a#.querypro.plugin.v1.ActionsResponse\x12N\n" +
+	"\aActions\x12\".querypro.plugin.v1.ActionsRequest\x1a#.querypro.plugin.v1.ActionsResponse\x12L\n" +
+	"\x05Build\x12 .querypro.plugin.v1.BuildRequest\x1a!.querypro.plugin.v1.BuildResponse\x12N\n" +
 	"\x05Query\x12 .querypro.plugin.v1.QueryRequest\x1a!.querypro.plugin.v1.QueryResponse0\x01B\x1dZ\x1bquerypro/internal/plugin/pbb\x06proto3"
 
 var (
@@ -864,7 +1048,7 @@ func file_querypro_plugin_v1_plugin_proto_rawDescGZIP() []byte {
 	return file_querypro_plugin_v1_plugin_proto_rawDescData
 }
 
-var file_querypro_plugin_v1_plugin_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_querypro_plugin_v1_plugin_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_querypro_plugin_v1_plugin_proto_goTypes = []any{
 	(*ConnectRequest)(nil),     // 0: querypro.plugin.v1.ConnectRequest
 	(*ConnectResponse)(nil),    // 1: querypro.plugin.v1.ConnectResponse
@@ -874,36 +1058,43 @@ var file_querypro_plugin_v1_plugin_proto_goTypes = []any{
 	(*ResourcesRequest)(nil),   // 5: querypro.plugin.v1.ResourcesRequest
 	(*ResourcesResponse)(nil),  // 6: querypro.plugin.v1.ResourcesResponse
 	(*Action)(nil),             // 7: querypro.plugin.v1.Action
-	(*ActionsRequest)(nil),     // 8: querypro.plugin.v1.ActionsRequest
-	(*ActionsResponse)(nil),    // 9: querypro.plugin.v1.ActionsResponse
-	(*QueryRequest)(nil),       // 10: querypro.plugin.v1.QueryRequest
-	(*Row)(nil),                // 11: querypro.plugin.v1.Row
-	(*Table)(nil),              // 12: querypro.plugin.v1.Table
-	(*Live)(nil),               // 13: querypro.plugin.v1.Live
-	(*QueryResponse)(nil),      // 14: querypro.plugin.v1.QueryResponse
+	(*Param)(nil),              // 8: querypro.plugin.v1.Param
+	(*ActionsRequest)(nil),     // 9: querypro.plugin.v1.ActionsRequest
+	(*ActionsResponse)(nil),    // 10: querypro.plugin.v1.ActionsResponse
+	(*BuildRequest)(nil),       // 11: querypro.plugin.v1.BuildRequest
+	(*BuildResponse)(nil),      // 12: querypro.plugin.v1.BuildResponse
+	(*QueryRequest)(nil),       // 13: querypro.plugin.v1.QueryRequest
+	(*Row)(nil),                // 14: querypro.plugin.v1.Row
+	(*Table)(nil),              // 15: querypro.plugin.v1.Table
+	(*Live)(nil),               // 16: querypro.plugin.v1.Live
+	(*QueryResponse)(nil),      // 17: querypro.plugin.v1.QueryResponse
 }
 var file_querypro_plugin_v1_plugin_proto_depIdxs = []int32{
 	4,  // 0: querypro.plugin.v1.ResourcesResponse.resources:type_name -> querypro.plugin.v1.Resource
-	4,  // 1: querypro.plugin.v1.ActionsRequest.resource:type_name -> querypro.plugin.v1.Resource
-	7,  // 2: querypro.plugin.v1.ActionsResponse.actions:type_name -> querypro.plugin.v1.Action
-	11, // 3: querypro.plugin.v1.Table.rows:type_name -> querypro.plugin.v1.Row
-	12, // 4: querypro.plugin.v1.QueryResponse.table:type_name -> querypro.plugin.v1.Table
-	13, // 5: querypro.plugin.v1.QueryResponse.live:type_name -> querypro.plugin.v1.Live
-	0,  // 6: querypro.plugin.v1.PluginService.Connect:input_type -> querypro.plugin.v1.ConnectRequest
-	2,  // 7: querypro.plugin.v1.PluginService.Disconnect:input_type -> querypro.plugin.v1.DisconnectRequest
-	5,  // 8: querypro.plugin.v1.PluginService.Resources:input_type -> querypro.plugin.v1.ResourcesRequest
-	8,  // 9: querypro.plugin.v1.PluginService.Actions:input_type -> querypro.plugin.v1.ActionsRequest
-	10, // 10: querypro.plugin.v1.PluginService.Query:input_type -> querypro.plugin.v1.QueryRequest
-	1,  // 11: querypro.plugin.v1.PluginService.Connect:output_type -> querypro.plugin.v1.ConnectResponse
-	3,  // 12: querypro.plugin.v1.PluginService.Disconnect:output_type -> querypro.plugin.v1.DisconnectResponse
-	6,  // 13: querypro.plugin.v1.PluginService.Resources:output_type -> querypro.plugin.v1.ResourcesResponse
-	9,  // 14: querypro.plugin.v1.PluginService.Actions:output_type -> querypro.plugin.v1.ActionsResponse
-	14, // 15: querypro.plugin.v1.PluginService.Query:output_type -> querypro.plugin.v1.QueryResponse
-	11, // [11:16] is the sub-list for method output_type
-	6,  // [6:11] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	8,  // 1: querypro.plugin.v1.Action.params:type_name -> querypro.plugin.v1.Param
+	4,  // 2: querypro.plugin.v1.ActionsRequest.resource:type_name -> querypro.plugin.v1.Resource
+	7,  // 3: querypro.plugin.v1.ActionsResponse.actions:type_name -> querypro.plugin.v1.Action
+	4,  // 4: querypro.plugin.v1.BuildRequest.resource:type_name -> querypro.plugin.v1.Resource
+	14, // 5: querypro.plugin.v1.Table.rows:type_name -> querypro.plugin.v1.Row
+	15, // 6: querypro.plugin.v1.QueryResponse.table:type_name -> querypro.plugin.v1.Table
+	16, // 7: querypro.plugin.v1.QueryResponse.live:type_name -> querypro.plugin.v1.Live
+	0,  // 8: querypro.plugin.v1.PluginService.Connect:input_type -> querypro.plugin.v1.ConnectRequest
+	2,  // 9: querypro.plugin.v1.PluginService.Disconnect:input_type -> querypro.plugin.v1.DisconnectRequest
+	5,  // 10: querypro.plugin.v1.PluginService.Resources:input_type -> querypro.plugin.v1.ResourcesRequest
+	9,  // 11: querypro.plugin.v1.PluginService.Actions:input_type -> querypro.plugin.v1.ActionsRequest
+	11, // 12: querypro.plugin.v1.PluginService.Build:input_type -> querypro.plugin.v1.BuildRequest
+	13, // 13: querypro.plugin.v1.PluginService.Query:input_type -> querypro.plugin.v1.QueryRequest
+	1,  // 14: querypro.plugin.v1.PluginService.Connect:output_type -> querypro.plugin.v1.ConnectResponse
+	3,  // 15: querypro.plugin.v1.PluginService.Disconnect:output_type -> querypro.plugin.v1.DisconnectResponse
+	6,  // 16: querypro.plugin.v1.PluginService.Resources:output_type -> querypro.plugin.v1.ResourcesResponse
+	10, // 17: querypro.plugin.v1.PluginService.Actions:output_type -> querypro.plugin.v1.ActionsResponse
+	12, // 18: querypro.plugin.v1.PluginService.Build:output_type -> querypro.plugin.v1.BuildResponse
+	17, // 19: querypro.plugin.v1.PluginService.Query:output_type -> querypro.plugin.v1.QueryResponse
+	14, // [14:20] is the sub-list for method output_type
+	8,  // [8:14] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_querypro_plugin_v1_plugin_proto_init() }
@@ -911,7 +1102,7 @@ func file_querypro_plugin_v1_plugin_proto_init() {
 	if File_querypro_plugin_v1_plugin_proto != nil {
 		return
 	}
-	file_querypro_plugin_v1_plugin_proto_msgTypes[14].OneofWrappers = []any{
+	file_querypro_plugin_v1_plugin_proto_msgTypes[17].OneofWrappers = []any{
 		(*QueryResponse_Table)(nil),
 		(*QueryResponse_Text)(nil),
 		(*QueryResponse_Live)(nil),
@@ -923,7 +1114,7 @@ func file_querypro_plugin_v1_plugin_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_querypro_plugin_v1_plugin_proto_rawDesc), len(file_querypro_plugin_v1_plugin_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   15,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

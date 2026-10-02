@@ -142,11 +142,34 @@ async function connect(uri: string): Promise<Session> {
       if (r.kind === "exchange") {
         return [
           { name: "Show bindings", query: `bindings ${n}` },
-          { name: "Tap messages (live)", query: `tap ${n} #` },
+          {
+            name: "Tap messages (live)",
+            query: `tap ${n} …`,
+            params: [{ name: "routing pattern", value: "#" }],
+            build: ([p]) => `tap ${n} ${quote(p)}`,
+          },
+          {
+            name: "Publish message",
+            query: `publish ${n} … …`,
+            params: [{ name: "routing key" }, { name: "body" }],
+            build: ([key, body]) => `publish ${n} ${quote(key)} ${quote(body)}`,
+          },
         ];
       }
       return [
         { name: "Peek messages", query: `peek ${n} 5` },
+        {
+          name: "Peek N messages",
+          query: `peek ${n} …`,
+          params: [{ name: "count", value: "20" }],
+          build: ([c]) => `peek ${n} ${quote(c)}`,
+        },
+        {
+          name: "Publish message",
+          query: `publish "" ${n} …`,
+          params: [{ name: "body" }],
+          build: ([body]) => `publish "" ${n} ${quote(body)}`,
+        },
         { name: "Consume and ack (live)", query: `consume ${n}`, danger: true },
         { name: "Purge queue", query: `purge ${n}`, danger: true },
       ];

@@ -13,6 +13,13 @@ export interface Action {
   name: string;
   query: string;
   danger?: boolean;
+  params?: Param[];
+  build?: (values: string[]) => string;
+}
+
+export interface Param {
+  name: string;
+  value?: string;
 }
 
 export type Output =
@@ -23,7 +30,7 @@ export type Output =
 export interface Session {
   server: string;
   resources(): Promise<Resource[]>;
-  actions(resource: Resource): Action[];
+  actions(resource: Resource): Action[] | Promise<Action[]>;
   query(query: string, signal: AbortSignal): Promise<Output>;
   close(): Promise<void>;
 }
@@ -56,6 +63,7 @@ export function guard(session: Session, lost: () => unknown): Session {
   return {
     ...session,
     resources: () => run(() => session.resources()),
+    actions: (r) => run(async () => session.actions(r)),
     query: (q, signal) => run(() => session.query(q, signal)),
   };
 }
@@ -279,11 +287,18 @@ export function serve(connect: (uri: string) => Promise<Session>): void {
       return {};
     }),
     Resources: unary(async ({ session }: { session: string }) => ({
-      resources: await get(session).resources(),
+      resources: (await get(session).resources()).slice(0, maxRows),
     })),
     Actions: unary(async ({ session, resource }: { session: string; resource: Resource }) => ({
-      actions: get(session).actions(resource),
+      actions: (await get(session).actions(resource)).map(({ build: _, ...a }) => a),
     })),
+    Build: unary(
+      async ({ session, resource, action, values }: { session: string; resource: Resource; action: string; values: string[] }) => {
+        const a = (await get(session).actions(resource)).find((x) => x.name === action);
+        if (!a) throw new Status(grpc.status.NOT_FOUND, `no action ${JSON.stringify(action)} on ${resource.name}`);
+        return { query: a.build ? a.build(values) : a.query };
+      },
+    ),
     Query: (call: grpc.ServerWritableStream<{ session: string; query: string }, unknown>) => {
       const ac = new AbortController();
       call.on("cancelled", () => ac.abort());

@@ -126,6 +126,12 @@ async function connect(uri: string): Promise<Session> {
         { name: "Describe partitions", query: `describe ${t}` },
         { name: "Tail new messages (live)", query: `tail ${t}` },
         { name: "Tail from beginning (live)", query: `tail ${t} from-beginning` },
+        {
+          name: "Produce message",
+          query: `produce ${t} …`,
+          params: [{ name: "value" }],
+          build: ([v]) => `produce ${t} ${quote(v)}`,
+        },
         { name: "Delete topic", query: `delete-topic ${t}`, danger: true },
       ];
     },

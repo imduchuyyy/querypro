@@ -20,6 +20,7 @@ import (
 const (
 	previewWidth  = 40
 	sidebarWidth  = 36
+	maxListRows   = 20
 	maxInputLines = 8
 	maxLiveLines  = 200
 )
@@ -201,6 +202,8 @@ func (m *model) handle(msg tea.Msg) tea.Cmd {
 		return m.refreshed(msg)
 	case actionsMsg:
 		return m.gotActions(msg)
+	case builtMsg:
+		return m.built(msg)
 	case exitMsg:
 		return tea.Batch(m.pluginExited(plugin.Exit(msg)), waitExit(m.host.Exits()), m.flash(fg(m.t().err).Render("✗ "+msg.Err.Error())))
 	case resultMsg:

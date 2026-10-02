@@ -10,7 +10,27 @@ import (
 )
 
 func (m *model) connectForm() dialog {
-	return newConnect(m.t(), m.checkName, m.saveProfile)
+	return newConnect(m.t(), "New connection", profile{}, func(name string) error {
+		return m.checkName(name, "")
+	}, m.saveProfile)
+}
+
+func (m *model) editForm(p profile) dialog {
+	return newConnect(m.t(), "Edit "+p.Name, p, func(name string) error {
+		return m.checkName(name, p.Name)
+	}, func(next profile) tea.Cmd { return m.updateProfile(p.Name, next) })
+}
+
+func (m *model) editList() dialog {
+	return newList(m.t(), "Edit saved connection", false, func() []item {
+		var items []item
+		for _, p := range m.profiles {
+			items = append(items, item{label: p.Name, hint: p.Kind, run: func() tea.Cmd {
+				return open(m.editForm(p))
+			}})
+		}
+		return items
+	})
 }
 
 func (m *model) newTab() dialog {
@@ -39,50 +59,53 @@ func (m *model) newTab() dialog {
 func (m *model) palette() dialog {
 	return newList(m.t(), "Commands", false, func() []item {
 		return []item{
-			{label: "New tab (connect)", hint: "ctrl+t", run: func() tea.Cmd {
+			{group: "Connection", label: "New tab (connect)", hint: "ctrl+t", run: func() tea.Cmd {
 				return open(m.newTab())
 			}},
-			{label: "Open resource", hint: "ctrl+o", run: func() tea.Cmd {
-				return open(m.resources())
-			}},
-			{label: "Resource actions", hint: "ctrl+x", run: m.showActions},
-			{label: "Refresh resources", run: func() tea.Cmd { return m.refresh(m.conn()) }},
-			{label: "Reconnect", run: func() tea.Cmd {
+			{group: "Connection", label: "Reconnect", run: func() tea.Cmd {
 				if c := m.conn(); c != nil {
 					stop(c)
 					return m.connect(c)
 				}
 				return open(m.newTab())
 			}},
-			{label: "Query history", run: func() tea.Cmd { return open(m.historyList()) }},
-			{label: "Go to tab", hint: "tab · alt+1..9", run: func() tea.Cmd {
-				return open(m.switcher())
+			{group: "Connection", label: "Edit saved connection", run: func() tea.Cmd {
+				return open(m.editList())
 			}},
-			{label: "Stop running in this tab", hint: "esc", run: func() tea.Cmd {
+			{group: "Connection", label: "Delete saved connection", danger: true, run: func() tea.Cmd {
+				return open(m.deleteList())
+			}},
+			{group: "Resources", label: "Open resource", hint: "ctrl+o", run: func() tea.Cmd {
+				return open(m.resources())
+			}},
+			{group: "Resources", label: "Resource actions", hint: "ctrl+x", run: m.showActions},
+			{group: "Resources", label: "Refresh resources", run: func() tea.Cmd { return m.refresh(m.conn()) }},
+			{group: "Query", label: "Query history", run: func() tea.Cmd { return open(m.historyList()) }},
+			{group: "Query", label: "Stop running in this tab", hint: "esc", run: func() tea.Cmd {
 				stop(m.conn())
 				return nil
 			}},
-			{label: "Clear this tab", run: func() tea.Cmd {
+			{group: "Query", label: "Clear this tab", run: func() tea.Cmd {
 				if c := m.conn(); c != nil {
 					stop(c)
 					c.entries = nil
 				}
 				return nil
 			}},
-			{label: "Close tab", danger: true, run: func() tea.Cmd {
+			{group: "Tabs", label: "Go to tab", hint: "tab · alt+1..9", run: func() tea.Cmd {
+				return open(m.switcher())
+			}},
+			{group: "Tabs", label: "Close tab", danger: true, run: func() tea.Cmd {
 				m.closeTab()
 				return nil
 			}},
-			{label: "Delete saved connection", danger: true, run: func() tea.Cmd {
-				return open(m.deleteList())
-			}},
-			{label: "Settings", run: func() tea.Cmd { return open(m.settings()) }},
-			{label: "Toggle sidebar", hint: "ctrl+b", run: func() tea.Cmd {
+			{group: "Preferences", label: "Settings", run: func() tea.Cmd { return open(m.settings()) }},
+			{group: "Preferences", label: "Toggle sidebar", hint: "ctrl+b", run: func() tea.Cmd {
 				m.sidebar = !m.sidebar
 				return m.saveSettings()
 			}},
-			{label: "Help", run: func() tea.Cmd { return open(m.help()) }},
-			{label: "Quit", hint: "ctrl+c", run: func() tea.Cmd { return tea.Quit }},
+			{group: "App", label: "Help", run: func() tea.Cmd { return open(m.help()) }},
+			{group: "App", label: "Quit", hint: "ctrl+c", run: func() tea.Cmd { return tea.Quit }},
 		}
 	})
 }
@@ -108,14 +131,27 @@ func (m *model) actionList(r plugin.Resource, acts []plugin.Action) dialog {
 		var items []item
 		for _, a := range acts {
 			items = append(items, item{label: a.Name, hint: a.Query, danger: a.Danger, run: func() tea.Cmd {
-				if a.Danger {
-					return open(m.confirm("Run "+a.Query, func() tea.Cmd { return m.run(a.Query) }))
-				}
-				return m.run(a.Query)
+				return m.pick(m.conn(), r, a)
 			}})
 		}
 		return items
 	})
+}
+
+func (m *model) pick(c *connection, r plugin.Resource, a plugin.Action) tea.Cmd {
+	if len(a.Params) > 0 {
+		return open(newForm(m.t(), a.Name, a.Params, func(values []string) tea.Cmd {
+			return m.build(c, r, a, values)
+		}))
+	}
+	return m.runAction(a.Query, a.Danger)
+}
+
+func (m *model) runAction(q string, danger bool) tea.Cmd {
+	if danger {
+		return open(m.confirm("Run "+q, func() tea.Cmd { return m.run(q) }))
+	}
+	return m.run(q)
 }
 
 func (m *model) rowDetail(e *entry, row int) dialog {

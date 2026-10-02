@@ -246,6 +246,19 @@ func TestBackends(t *testing.T) {
 				t.Fatalf("actions: %v %v", acts, err)
 			}
 			for _, a := range acts {
+				if len(a.Params) > 0 {
+					values := make([]string, len(a.Params))
+					for i, p := range a.Params {
+						values[i] = p.Value
+						if values[i] == "" {
+							values[i] = "1"
+						}
+					}
+					if q, err := s.Build(ctx, *found, a.Name, values); err != nil || q == "" {
+						t.Fatalf("build %s: %q %v", a.Name, q, err)
+					}
+					continue
+				}
 				if a.Danger || strings.Contains(a.Name, "live") || strings.Contains(a.Name, "tail") {
 					continue
 				}

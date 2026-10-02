@@ -132,6 +132,12 @@ async function connect(uri: string): Promise<Session> {
       return [
         { name: "Recent logs", query: r.name },
         { name: "Errors only", query: `${r.name} |~ "(?i)error"` },
+        {
+          name: "Search text",
+          query: `${r.name} |= …`,
+          params: [{ name: "text" }],
+          build: ([s]) => `${r.name} |= ${JSON.stringify(s)}`,
+        },
         { name: "Live tail", query: `tail ${r.name}` },
         { name: "Lines per minute", query: `sum(count_over_time(${r.name}[1m]))` },
       ];

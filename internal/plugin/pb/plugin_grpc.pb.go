@@ -23,6 +23,7 @@ const (
 	PluginService_Disconnect_FullMethodName = "/querypro.plugin.v1.PluginService/Disconnect"
 	PluginService_Resources_FullMethodName  = "/querypro.plugin.v1.PluginService/Resources"
 	PluginService_Actions_FullMethodName    = "/querypro.plugin.v1.PluginService/Actions"
+	PluginService_Build_FullMethodName      = "/querypro.plugin.v1.PluginService/Build"
 	PluginService_Query_FullMethodName      = "/querypro.plugin.v1.PluginService/Query"
 )
 
@@ -34,6 +35,7 @@ type PluginServiceClient interface {
 	Disconnect(ctx context.Context, in *DisconnectRequest, opts ...grpc.CallOption) (*DisconnectResponse, error)
 	Resources(ctx context.Context, in *ResourcesRequest, opts ...grpc.CallOption) (*ResourcesResponse, error)
 	Actions(ctx context.Context, in *ActionsRequest, opts ...grpc.CallOption) (*ActionsResponse, error)
+	Build(ctx context.Context, in *BuildRequest, opts ...grpc.CallOption) (*BuildResponse, error)
 	Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[QueryResponse], error)
 }
 
@@ -85,6 +87,16 @@ func (c *pluginServiceClient) Actions(ctx context.Context, in *ActionsRequest, o
 	return out, nil
 }
 
+func (c *pluginServiceClient) Build(ctx context.Context, in *BuildRequest, opts ...grpc.CallOption) (*BuildResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BuildResponse)
+	err := c.cc.Invoke(ctx, PluginService_Build_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *pluginServiceClient) Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[QueryResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &PluginService_ServiceDesc.Streams[0], PluginService_Query_FullMethodName, cOpts...)
@@ -112,6 +124,7 @@ type PluginServiceServer interface {
 	Disconnect(context.Context, *DisconnectRequest) (*DisconnectResponse, error)
 	Resources(context.Context, *ResourcesRequest) (*ResourcesResponse, error)
 	Actions(context.Context, *ActionsRequest) (*ActionsResponse, error)
+	Build(context.Context, *BuildRequest) (*BuildResponse, error)
 	Query(*QueryRequest, grpc.ServerStreamingServer[QueryResponse]) error
 	mustEmbedUnimplementedPluginServiceServer()
 }
@@ -134,6 +147,9 @@ func (UnimplementedPluginServiceServer) Resources(context.Context, *ResourcesReq
 }
 func (UnimplementedPluginServiceServer) Actions(context.Context, *ActionsRequest) (*ActionsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Actions not implemented")
+}
+func (UnimplementedPluginServiceServer) Build(context.Context, *BuildRequest) (*BuildResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Build not implemented")
 }
 func (UnimplementedPluginServiceServer) Query(*QueryRequest, grpc.ServerStreamingServer[QueryResponse]) error {
 	return status.Error(codes.Unimplemented, "method Query not implemented")
@@ -231,6 +247,24 @@ func _PluginService_Actions_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PluginService_Build_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BuildRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PluginServiceServer).Build(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PluginService_Build_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PluginServiceServer).Build(ctx, req.(*BuildRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _PluginService_Query_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(QueryRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -264,6 +298,10 @@ var PluginService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Actions",
 			Handler:    _PluginService_Actions_Handler,
+		},
+		{
+			MethodName: "Build",
+			Handler:    _PluginService_Build_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

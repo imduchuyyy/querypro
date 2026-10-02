@@ -9,6 +9,7 @@ service PluginService {
   rpc Disconnect(DisconnectRequest) returns (DisconnectResponse);
   rpc Resources(ResourcesRequest) returns (ResourcesResponse);
   rpc Actions(ActionsRequest) returns (ActionsResponse);
+  rpc Build(BuildRequest) returns (BuildResponse);
   rpc Query(QueryRequest) returns (stream QueryResponse);
 }
 
@@ -44,6 +45,12 @@ message Action {
   string name = 1;
   string query = 2;
   bool danger = 3;
+  repeated Param params = 4;
+}
+
+message Param {
+  string name = 1;
+  string value = 2;
 }
 
 message ActionsRequest {
@@ -53,6 +60,17 @@ message ActionsRequest {
 
 message ActionsResponse {
   repeated Action actions = 1;
+}
+
+message BuildRequest {
+  string session = 1;
+  Resource resource = 2;
+  string action = 3;
+  repeated string values = 4;
+}
+
+message BuildResponse {
+  string query = 1;
 }
 
 message QueryRequest {

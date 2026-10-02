@@ -55,6 +55,9 @@ func (m *model) View() tea.View {
 	}
 	body = m.tablineView() + "\n" + body
 	if m.dlg != nil {
+		if l, ok := m.dlg.(*listDialog); ok {
+			l.height = min(maxListRows, max(m.height-10, 3))
+		}
 		box := m.dlg.view(t, max(min(72, m.width-4), 12))
 		x := (m.width - lipgloss.Width(box)) / 2
 		y := (m.height - lipgloss.Height(box)) / 4

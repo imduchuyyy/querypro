@@ -81,8 +81,27 @@ func (s *session) Actions(ctx context.Context, r Resource) ([]Action, error) {
 	out := make([]Action, len(res.Actions))
 	for i, a := range res.Actions {
 		out[i] = Action{Name: a.Name, Query: a.Query, Danger: a.Danger}
+		for _, p := range a.Params {
+			out[i].Params = append(out[i].Params, Param{Name: p.Name, Value: p.Value})
+		}
 	}
 	return out, nil
+}
+
+func (s *session) Build(ctx context.Context, r Resource, action string, values []string) (string, error) {
+	if err := s.alive(); err != nil {
+		return "", err
+	}
+	res, err := s.p.client.Build(ctx, &pb.BuildRequest{
+		Session:  s.id,
+		Resource: &pb.Resource{Kind: r.Kind, Name: r.Name},
+		Action:   action,
+		Values:   values,
+	})
+	if err != nil {
+		return "", rpcErr(err)
+	}
+	return res.Query, nil
 }
 
 func (s *session) Query(ctx context.Context, q string) (Result, error) {

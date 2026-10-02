@@ -163,3 +163,81 @@ func TestSidebarScroll(t *testing.T) {
 		t.Fatalf("offset %d after scrolling up", c.resOffset)
 	}
 }
+
+func TestPaletteGroups(t *testing.T) {
+	m := seed(t)
+	d := m.palette().(*listDialog)
+	out := d.view(m.t(), 72)
+	for _, g := range []string{"CONNECTION", "RESOURCES", "QUERY", "TABS", "PREFERENCES", "APP"} {
+		if strings.Count(out, g) != 1 {
+			t.Errorf("group %s should show once\n%s", g, out)
+		}
+	}
+	d.search.SetValue("connection")
+	for _, it := range d.visible() {
+		if it.group != "Connection" && !strings.Contains(strings.ToLower(it.label), "connection") {
+			t.Errorf("search matched %q in %s", it.label, it.group)
+		}
+	}
+}
+
+func TestFuzzySearch(t *testing.T) {
+	m := seed(t)
+	d := m.palette().(*listDialog)
+	for q, want := range map[string]string{
+		"rcn":    "Reconnect",
+		"edcon":  "Edit saved connection",
+		"quit":   "Quit",
+		"tgsdbr": "Toggle sidebar",
+	} {
+		d.search.SetValue(q)
+		if got := d.visible(); len(got) == 0 || got[0].label != want {
+			t.Errorf("%q: got %v, want %s first", q, got, want)
+		}
+	}
+	d.search.SetValue("zzz")
+	if got := d.visible(); len(got) != 0 {
+		t.Errorf("no match should list nothing, got %d", len(got))
+	}
+	if _, ok := fuzzy("users", "u_order_users"); !ok {
+		t.Error("subsequence should match")
+	}
+	a, _ := fuzzy("users", "users")
+	b, _ := fuzzy("users", "u_order_users")
+	if a <= b {
+		t.Errorf("exact %d should beat scattered %d", a, b)
+	}
+}
+
+func TestLongList(t *testing.T) {
+	m := seed(t)
+	c := m.conn()
+	c.resources = nil
+	for i := range 1000 {
+		c.resources = append(c.resources, plugin.Resource{Name: fmt.Sprintf("key:%04d", i), Kind: "hash"})
+	}
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
+	m.dlg = m.resources()
+	if got := lipgloss.Height(m.View().Content); got != 30 {
+		t.Fatalf("a long list must fit the screen, got %d lines", got)
+	}
+	for range 120 {
+		m.Update(tea.KeyPressMsg{Code: tea.KeyPgDown})
+	}
+	if out := m.View().Content; !strings.Contains(out, "key:0999") || !strings.Contains(out, "1000/1000") {
+		t.Fatalf("the cursor should stay visible at the end\n%s", out)
+	}
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 80})
+	m.View()
+	if got := strings.Count(m.dlg.view(m.t(), 72), "key:"); got != maxListRows {
+		t.Fatalf("a tall screen should still show %d rows, got %d", maxListRows, got)
+	}
+	m.dlg = m.palette()
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 20})
+	for range 30 {
+		m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	}
+	if out := m.View().Content; lipgloss.Height(out) != 20 || !strings.Contains(out, "Quit") {
+		t.Fatalf("grouped list should scroll within the screen\n%s", out)
+	}
+}
