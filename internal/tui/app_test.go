@@ -77,7 +77,7 @@ func (s *fakeSession) Query(ctx context.Context, q string) (plugin.Result, error
 }
 
 func TestMain(m *testing.M) {
-	noticeTTL = 0
+	noticeTTL, retryDelay = 0, 0
 	os.Exit(m.Run())
 }
 
@@ -90,7 +90,7 @@ func do(m *model, cmd tea.Cmd) {
 		for _, c := range msg {
 			do(m, c)
 		}
-	case noticeMsg, lineMsg, endMsg:
+	case noticeMsg, lineMsg, endMsg, retryMsg:
 	default:
 		_, next := m.Update(msg)
 		do(m, next)
@@ -266,6 +266,31 @@ func TestActions(t *testing.T) {
 	do(m, cmd)
 	if len(c.entries) != 1 || c.entries[0].query != "DROP TABLE orders;" {
 		t.Fatalf("confirmed action did not run, entries=%d", len(c.entries))
+	}
+}
+
+func TestAutoReconnect(t *testing.T) {
+	m := seed(t)
+	do(m, m.saveProfile(profile{Name: "flaky", Kind: "postgres", URI: "postgres://down"}))
+	c := m.conn()
+	retry, ok := m.retry(c)().(retryMsg)
+	if !ok || c.sess != nil {
+		t.Fatal("a failed connect should schedule a retry")
+	}
+	c.uri = "postgres://up"
+	stale := retryMsg{c.id, c.attempt - 1}
+	if m.retried(stale) != nil {
+		t.Fatal("a stale retry should be ignored")
+	}
+	do(m, m.retried(retry))
+	if c.sess == nil {
+		t.Fatal("a retry should reconnect")
+	}
+	if m.retried(retry) != nil {
+		t.Fatal("a retry on a connected tab should do nothing")
+	}
+	if cmd := m.pluginExited(plugin.Exit{Kind: "postgres"}); cmd == nil {
+		t.Fatal("a plugin exit should schedule a retry")
 	}
 }
 

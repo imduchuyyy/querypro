@@ -132,3 +132,34 @@ func TestColumnWindow(t *testing.T) {
 		t.Fatal("the status line should say which columns are visible")
 	}
 }
+
+func TestSidebarScroll(t *testing.T) {
+	m := seed(t)
+	c := m.conn()
+	c.resources = nil
+	for i := range 100 {
+		c.resources = append(c.resources, plugin.Resource{Name: fmt.Sprintf("res%03d", i), Kind: "table"})
+	}
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
+	if got := lipgloss.Height(m.sidebarView()); got != 30-tablineHeight {
+		t.Fatalf("sidebar is %d lines high", got)
+	}
+	m.View()
+	first := m.clicks[0].y
+	for range 50 {
+		m.Update(tea.MouseWheelMsg{X: 1, Y: first, Button: tea.MouseWheelDown})
+	}
+	out := m.View().Content
+	if !strings.Contains(out, "res099") || strings.Contains(out, "res000") {
+		t.Fatalf("scrolling should reach the last resource\n%s", out)
+	}
+	m.clicks[0].fn()
+	if c.current == nil || c.current.Name != fmt.Sprintf("res%03d", c.resOffset) {
+		t.Fatalf("click opened %+v at offset %d", c.current, c.resOffset)
+	}
+	end := c.resOffset
+	m.Update(tea.MouseWheelMsg{X: 1, Y: first, Button: tea.MouseWheelUp})
+	if c.resOffset != end-3 {
+		t.Fatalf("offset %d after scrolling up", c.resOffset)
+	}
+}

@@ -195,13 +195,14 @@ func (m *model) handle(msg tea.Msg) tea.Cmd {
 		return nil
 	case connectedMsg:
 		return m.connected(msg)
+	case retryMsg:
+		return m.retried(msg)
 	case resourcesMsg:
 		return m.refreshed(msg)
 	case actionsMsg:
 		return m.gotActions(msg)
 	case exitMsg:
-		m.pluginExited(plugin.Exit(msg))
-		return tea.Batch(waitExit(m.host.Exits()), m.flash(fg(m.t().err).Render("✗ "+msg.Err.Error())))
+		return tea.Batch(m.pluginExited(plugin.Exit(msg)), waitExit(m.host.Exits()), m.flash(fg(m.t().err).Render("✗ "+msg.Err.Error())))
 	case resultMsg:
 		tab, e := m.entry(msg.id)
 		if e == nil {
@@ -242,6 +243,16 @@ func (m *model) handle(msg tea.Msg) tea.Cmd {
 		}
 		return nil
 	case tea.MouseWheelMsg:
+		if c := m.conn(); c != nil && m.dlg == nil && m.mainWidth() < m.width && msg.X < sidebarWidth {
+			switch msg.Button {
+			case tea.MouseWheelUp:
+				c.resOffset = max(c.resOffset-3, 0)
+				return nil
+			case tea.MouseWheelDown:
+				c.resOffset += 3
+				return nil
+			}
+		}
 		switch msg.Button {
 		case tea.MouseWheelLeft:
 			m.shiftColumns(-1)

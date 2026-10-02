@@ -401,8 +401,16 @@ func (m *model) sidebarView() string {
 	if c.err != nil {
 		lines = append(lines, strings.Split(fg(t.err).Width(inner).Render("✗ "+c.err.Error()), "\n")...)
 	}
-	lines = append(lines, "", section("RESOURCES", fmt.Sprint(len(c.resources))), "")
-	for _, r := range c.resources {
+	n := len(c.resources)
+	rows := max(h-box.GetVerticalFrameSize()-len(lines)-3, 0)
+	c.resOffset = max(min(c.resOffset, n-rows), 0)
+	shown := c.resources[c.resOffset:min(c.resOffset+rows, n)]
+	count := fmt.Sprint(n)
+	if len(shown) < n {
+		count = fmt.Sprintf("%d-%d/%d", c.resOffset+1, c.resOffset+len(shown), n)
+	}
+	lines = append(lines, "", section("RESOURCES", count), "")
+	for _, r := range shown {
 		kind := fg(t.muted).Render(r.Kind)
 		label := ansi.Truncate(r.Name, max(inner-lipgloss.Width(kind)-3, 1), "…")
 		mark, name := "  ", fg(t.text).Render(label)

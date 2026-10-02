@@ -19,6 +19,8 @@ const (
 	rpcTimeout     = 30 * time.Second
 )
 
+var retryDelay = 5 * time.Second
+
 type connection struct {
 	id         int
 	name       string
@@ -33,6 +35,7 @@ type connection struct {
 	entries    []*entry
 	draft      string
 	offset     int
+	resOffset  int
 }
 
 type (
@@ -49,6 +52,7 @@ type (
 		res  []plugin.Resource
 		err  error
 	}
+	retryMsg   struct{ id, attempt int }
 	actionsMsg struct {
 		id   int
 		sess plugin.Session
@@ -120,7 +124,23 @@ func (m *model) connected(msg connectedMsg) tea.Cmd {
 	}
 	c.connecting = false
 	c.sess, c.resources, c.err = msg.sess, msg.res, msg.err
+	if c.sess == nil {
+		return m.retry(c)
+	}
 	return nil
+}
+
+func (m *model) retry(c *connection) tea.Cmd {
+	id, attempt := c.id, c.attempt
+	return tea.Tick(retryDelay, func(time.Time) tea.Msg { return retryMsg{id, attempt} })
+}
+
+func (m *model) retried(msg retryMsg) tea.Cmd {
+	c := m.byID(msg.id)
+	if c == nil || c.attempt != msg.attempt || c.sess != nil || c.connecting {
+		return nil
+	}
+	return m.connect(c)
 }
 
 func (m *model) refresh(c *connection) tea.Cmd {
@@ -215,12 +235,17 @@ func (m *model) lost(c *connection, s plugin.Session, err error) tea.Cmd {
 	return tea.Batch(m.fail(fmt.Errorf("%s: %w, reconnecting", c.name, err)), m.connect(c))
 }
 
-func (m *model) pluginExited(e plugin.Exit) {
+func (m *model) pluginExited(e plugin.Exit) tea.Cmd {
+	var cmds []tea.Cmd
 	for _, c := range m.conns {
 		if c.kind == e.Kind && (c.sess != nil || c.connecting) {
+			if c.sess != nil {
+				cmds = append(cmds, m.retry(c))
+			}
 			c.sess, c.connecting, c.err = nil, false, e.Err
 		}
 	}
+	return tea.Batch(cmds...)
 }
 
 func (m *model) closeAll() {
