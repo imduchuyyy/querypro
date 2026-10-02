@@ -50,7 +50,7 @@ jobs:
           cache-dependency-path: plugins/package-lock.json
       - uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.13.2
+          version: v2.12.2
       - run: make tools
       - run: make proto && git diff --exit-code
       - run: make lint

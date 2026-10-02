@@ -515,8 +515,7 @@ func highlightJSON(t theme, s string) string {
 	}
 	for i := 0; i < len(s); {
 		c := s[i]
-		j := i + 1
-		col := t.text
+		j, col := i+1, t.muted
 		switch {
 		case c == '"':
 			for j < len(s) && s[j] != '"' {
@@ -537,7 +536,6 @@ func highlightJSON(t theme, s string) string {
 			j = span(i, func(x byte) bool { return x >= 'a' && x <= 'z' })
 			col = t.err
 		case strings.IndexByte("{}[],:", c) >= 0:
-			col = t.muted
 		default:
 			b.WriteByte(c)
 			i++

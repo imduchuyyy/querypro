@@ -109,7 +109,12 @@ async function connect(uri: string): Promise<Session> {
       return text("", `created ${topic}`);
     },
     async "delete-topic <topic>"([topic]) {
-      await admin.deleteTopics({ topics: [topic] });
+      if (!(await admin.listTopics()).includes(topic)) throw new Error(`topic ${topic} does not exist`);
+      try {
+        await admin.deleteTopics({ topics: [topic] });
+      } catch (err) {
+        if ((await admin.listTopics()).includes(topic)) throw err;
+      }
       return text("", `deleted ${topic}`);
     },
   };
