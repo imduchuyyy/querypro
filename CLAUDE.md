@@ -22,7 +22,8 @@ make dist                           # release tarball for GOOS/GOARCH
 CI (`.github/workflows/ci.yml`) runs test, integration (docker compose) and
 lint, and fails if `make proto` changes generated code. Tool versions are
 pinned in the `Makefile`; the golangci-lint version is also in the workflow,
-bump them together.
+bump them together. The lint job runs Go 1.26 because buf and
+golangci-lint need it; the module and other jobs stay on `go.mod`.
 
 ## Architecture
 
