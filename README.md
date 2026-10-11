@@ -49,6 +49,19 @@ palette's Help lists every key.
 
 Unknown commands reply with the list of supported ones.
 
+## MCP
+
+`querypro mcp` serves your saved connections to AI clients over stdio:
+tools `connections`, `resources`, `actions` and `query` (marked
+destructive, so clients ask before running it). Live streams are collected
+for `seconds` (default 5, max 60) or 500 lines. URIs are never exposed.
+
+```sh
+claude mcp add querypro -- /path/to/querypro mcp
+```
+
+Other clients: `{"command": "/path/to/querypro", "args": ["mcp"]}`.
+
 ## Files
 
 Everything lives in `$QUERYPRO_HOME`, default `os.UserConfigDir()/querypro`

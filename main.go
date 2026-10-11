@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	"querypro/internal/mcp"
 	"querypro/internal/plugin"
 	"querypro/internal/store"
 	"querypro/internal/tui"
@@ -21,13 +23,13 @@ func main() {
 		fmt.Println(version)
 		return
 	}
-	if err := run(pluginDir(*plugins)); err != nil {
+	if err := run(pluginDir(*plugins), flag.Arg(0) == "mcp"); err != nil {
 		fmt.Fprintln(os.Stderr, "querypro:", err)
 		os.Exit(1)
 	}
 }
 
-func run(plugins string) error {
+func run(plugins string, serveMCP bool) error {
 	home, err := store.Dir()
 	if err != nil {
 		return err
@@ -41,6 +43,9 @@ func run(plugins string) error {
 		return err
 	}
 	defer host.Close()
+	if serveMCP {
+		return mcp.Serve(context.Background(), host, st, version)
+	}
 	return tui.Run(host, st)
 }
 

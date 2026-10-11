@@ -2,20 +2,18 @@ package tui
 
 import (
 	tea "charm.land/bubbletea/v2"
+
+	"querypro/internal/store"
 )
 
 const (
-	profilesFile = "connections.json"
+	profilesFile = store.ProfilesFile
 	settingsFile = "settings.json"
 	historyFile  = "history.json"
 	maxHistory   = 500
 )
 
-type profile struct {
-	Name string `json:"name"`
-	Kind string `json:"kind"`
-	URI  string `json:"uri"`
-}
+type profile = store.Profile
 
 type settings struct {
 	Theme   string `json:"theme"`

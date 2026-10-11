@@ -43,6 +43,9 @@ subprocess and talking gRPC over a unix socket.
   event decides the result (table, text, or live then lines).
 - `internal/store`: JSON files in `$QUERYPRO_HOME` with atomic 0600 writes.
 - `internal/tui`: Bubble Tea UI, see below.
+- `internal/mcp`: `querypro mcp`, an MCP stdio server (official go-sdk)
+  over saved profiles (`store.Profile`). Sessions are cached per name and
+  reconnected once on `plugin.ErrDisconnected`; URIs are never returned.
 - `plugins/sdk/index.ts`: `serve(connect)` implements the gRPC side;
   helpers `table`, `text`, `live`, `dispatch`, `words`, `quote`.
 - `plugins/<kind>/index.ts` + `plugin.json`: one plugin per backend.

@@ -9,6 +9,14 @@ import (
 	"path/filepath"
 )
 
+const ProfilesFile = "connections.json"
+
+type Profile struct {
+	Name string `json:"name"`
+	Kind string `json:"kind"`
+	URI  string `json:"uri"`
+}
+
 type Store struct {
 	dir string
 }
