@@ -9,6 +9,15 @@ is a TypeScript plugin in `plugins/` that runs as a subprocess and talks to
 the core over gRPC, with streaming for live data (tails, subscriptions,
 consumers).
 
+## Install
+
+```sh
+brew install imduchuyyy/tap/querypro
+```
+
+Or download a tarball from the GitHub releases, extract it and run
+`querypro` from the extracted directory.
+
 ## Requirements
 
 - Go (version in `go.mod`) to build

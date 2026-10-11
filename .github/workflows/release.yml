@@ -1,0 +1,41 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: plugins/package-lock.json
+      - run: |
+          for t in darwin/arm64 darwin/amd64 linux/arm64 linux/amd64; do
+            GOOS=${t%/*} GOARCH=${t#*/} make dist VERSION=$GITHUB_REF_NAME
+          done
+      - run: gh release create "$GITHUB_REF_NAME" dist/*.tar.gz --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Update Homebrew tap
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+        run: |
+          git clone "https://x-access-token:$TAP_TOKEN@github.com/imduchuyyy/homebrew-tap" tap
+          scripts/formula.sh "$GITHUB_REF_NAME" > tap/Formula/querypro.rb
+          cd tap
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add Formula
+          git commit -m "querypro $GITHUB_REF_NAME"
+          git push
