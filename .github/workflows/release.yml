@@ -24,7 +24,9 @@ jobs:
           for t in darwin/arm64 darwin/amd64 linux/arm64 linux/amd64; do
             GOOS=${t%/*} GOARCH=${t#*/} make dist VERSION=$GITHUB_REF_NAME
           done
-      - run: gh release create "$GITHUB_REF_NAME" dist/*.tar.gz --generate-notes
+      - run: |
+          gh release upload "$GITHUB_REF_NAME" dist/*.tar.gz --clobber ||
+            gh release create "$GITHUB_REF_NAME" dist/*.tar.gz --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}
       - name: Update Homebrew tap
