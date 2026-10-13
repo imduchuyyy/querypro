@@ -12,7 +12,7 @@ consumers).
 ## Install
 
 ```sh
-brew install imduchuyyy/tap/querypro
+brew install --cask imduchuyyy/tap/querypro
 ```
 
 Or download a tarball from the GitHub releases, extract it and run

@@ -34,10 +34,12 @@ jobs:
           TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
         run: |
           git clone "https://x-access-token:$TAP_TOKEN@github.com/imduchuyyy/homebrew-tap" tap
-          scripts/formula.sh "$GITHUB_REF_NAME" > tap/Formula/querypro.rb
+          mkdir -p tap/Casks
+          scripts/cask.sh "$GITHUB_REF_NAME" > tap/Casks/querypro.rb
           cd tap
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add Formula
+          git rm -rq --ignore-unmatch Formula
+          git add Casks
           git commit -m "querypro $GITHUB_REF_NAME"
           git push
