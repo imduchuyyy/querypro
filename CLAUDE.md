@@ -32,7 +32,10 @@ Kafka, Loki). It is **plugin-first**: the Go core knows nothing about any
 datastore; every backend is a TypeScript plugin in `plugins/` running as a
 subprocess and talking gRPC over a unix socket.
 
-- `main.go`: resolves the home dir and plugin dir, builds the host, runs TUI.
+- `main.go`: cobra root (TUI by default, `mcp`); resolves home and plugin
+  dirs and builds the host. `cli.go`: `conn add|ls|rm` over saved profiles
+  (names checked by `store.CheckName`, shared with the TUI) and
+  `query <conn> <query>` printing tables via tabwriter.
 - `proto/querypro/plugin/v1/plugin.proto`: **the core/plugin contract**.
   Every plugin depends on it; change it deliberately, run `make proto`.
 - `internal/plugin`: `Host` discovers `plugins/*/plugin.json`, spawns a

@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const ProfilesFile = "connections.json"
@@ -15,6 +16,21 @@ type Profile struct {
 	Name string `json:"name"`
 	Kind string `json:"kind"`
 	URI  string `json:"uri"`
+}
+
+func CheckName(ps []Profile, name, old string) error {
+	switch {
+	case name == "":
+		return errors.New("give the connection a name")
+	case strings.ContainsAny(name, " \t!"):
+		return errors.New("use a name without spaces or \"!\" in it")
+	}
+	for _, p := range ps {
+		if strings.EqualFold(p.Name, name) && p.Name != old {
+			return fmt.Errorf("a connection named %q already exists", p.Name)
+		}
+	}
+	return nil
 }
 
 type Store struct {

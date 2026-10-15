@@ -49,6 +49,20 @@ palette's Help lists every key.
 
 Unknown commands reply with the list of supported ones.
 
+## CLI
+
+Saved connections are shared with the TUI:
+
+```sh
+querypro conn add local postgres postgres://user:pass@localhost/db
+querypro conn ls
+querypro query local 'SELECT * FROM users LIMIT 5'
+querypro query cache SUBSCRIBE news   # live streams run until ctrl+c
+querypro conn rm local
+```
+
+Tables print aligned on stdout, the summary goes to stderr.
+
 ## MCP
 
 `querypro mcp` serves your saved connections to AI clients over stdio:

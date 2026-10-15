@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
-	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 
 	"querypro/internal/plugin"
+	"querypro/internal/store"
 )
 
 const (
@@ -320,18 +320,7 @@ func (m *model) switchTab(i int) {
 }
 
 func (m *model) checkName(name, old string) error {
-	switch {
-	case name == "":
-		return errors.New("give the connection a name")
-	case strings.ContainsAny(name, " \t!"):
-		return errors.New("use a name without spaces or \"!\" in it")
-	}
-	for _, p := range m.profiles {
-		if strings.EqualFold(p.Name, name) && p.Name != old {
-			return fmt.Errorf("a connection named %q already exists", p.Name)
-		}
-	}
-	return nil
+	return store.CheckName(m.profiles, name, old)
 }
 
 func (m *model) saveProfile(p profile) tea.Cmd {
